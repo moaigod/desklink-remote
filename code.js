@@ -232,7 +232,7 @@ function attachViewerControlHandlers() {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       } else {
-        await document.documentElement.requestFullscreen();
+        await remoteVideo.requestFullscreen();
       }
     } catch (error) {
       console.warn("Fullscreen request failed", error);

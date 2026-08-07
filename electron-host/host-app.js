@@ -7,6 +7,7 @@ const statusBadge = document.getElementById('statusBadge');
 const roomLabel = document.getElementById('roomLabel');
 const statusMessage = document.getElementById('statusMessage');
 const inputDebug = document.getElementById('inputDebug');
+const keyboardDebug = document.getElementById('keyboardDebug');
 const previewVideo = document.getElementById('previewVideo');
 
 let roomId = null;
@@ -173,6 +174,10 @@ function setupControlChannel(channel) {
           const targetY = inputBounds ? Math.round(y * (inputBounds.height - 1)) + inputBounds.y : 'unknown';
           inputDebug.textContent = `Pointer mapping: ${x.toFixed(3)}, ${y.toFixed(3)} → ${targetX}, ${targetY}`;
         }
+      }
+      if ((message.type === 'text' || message.type.startsWith('key-')) && keyboardDebug) {
+        const received = message.type === 'text' ? JSON.stringify(message.payload?.text || '') : message.payload?.key || message.type;
+        keyboardDebug.textContent = `Keyboard input received: ${received}`;
       }
       window.electronAPI.injectInput(message);
     }

@@ -27,7 +27,8 @@ function ensureInputHelper() {
     '-NoProfile',
     '-ExecutionPolicy', 'Bypass',
     '-File', path.join(__dirname, 'input-helper.ps1'),
-  ], { stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true });
+  ], { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
+  inputHelper.stderr.on('data', (data) => console.error(`DeskLink input helper: ${data.toString().trim()}`));
   inputHelper.on('exit', () => { inputHelper = null; });
   return inputHelper;
 }

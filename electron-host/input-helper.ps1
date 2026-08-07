@@ -76,5 +76,5 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       $vk = Get-VirtualKey $payload.key
       if ($null -ne $vk) { [DeskLinkInput]::keybd_event($vk, 0, (if ($message.type -eq 'key-up') { 0x0002 } else { 0 }), [UIntPtr]::Zero) }
     }
-  } catch { }
+  } catch { [Console]::Error.WriteLine($_.Exception.Message) }
 }
