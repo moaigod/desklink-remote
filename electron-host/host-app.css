@@ -1,0 +1,111 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", sans-serif;
+  background: #111827;
+  color: #f9fafb;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(135deg, #0f172a, #111827 60%, #1f2937);
+  min-height: 100vh;
+}
+
+.app-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+header h1 {
+  margin-bottom: 4px;
+}
+
+header p {
+  margin-top: 0;
+  color: #cbd5e1;
+}
+
+.panel {
+  background: rgba(17, 24, 39, 0.88);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 16px 42px rgba(0,0,0,0.25);
+}
+
+.field-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+input,
+select,
+button {
+  font: inherit;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+input,
+select {
+  flex: 1;
+  min-width: 160px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.08);
+  color: white;
+}
+
+button {
+  border: none;
+  cursor: pointer;
+  background: #38bdf8;
+  color: #082f49;
+  font-weight: 700;
+}
+
+button.secondary {
+  background: rgba(255,255,255,0.12);
+  color: white;
+}
+
+.status-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.badge {
+  display: inline-flex;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.badge.standby {
+  background: rgba(125, 211, 252, 0.16);
+  color: #bae6fd;
+}
+
+.badge.connecting {
+  background: #34d399;
+  color: #052e16;
+}
+
+.message {
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+video {
+  width: 100%;
+  margin-top: 18px;
+  border-radius: 18px;
+  background: #020617;
+  min-height: 320px;
+  object-fit: contain;
+}

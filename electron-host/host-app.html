@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeskLink Host App</title>
+    <link rel="stylesheet" href="host-app.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header>
+        <h1>DeskLink Host App</h1>
+        <p>Run this on the computer you want to share.</p>
+      </header>
+
+      <section class="panel">
+        <div class="field-row">
+          <input id="hostIdInput" type="text" placeholder="Host ID" />
+          <input id="accessCodeInput" type="text" placeholder="Session passcode" autocomplete="off" />
+        </div>
+
+        <div class="field-row">
+          <select id="sourceSelect"></select>
+          <button id="startBtn">Start hosting</button>
+          <button id="stopBtn" class="secondary">Stop</button>
+        </div>
+
+        <div class="status-line">
+          <span id="statusBadge" class="badge standby">Waiting</span>
+          <span id="roomLabel">Room: --</span>
+        </div>
+
+        <p id="statusMessage" class="message">Choose a screen source and begin hosting.</p>
+      </section>
+
+      <video id="previewVideo" autoplay playsinline muted></video>
+    </div>
+
+    <script src="host-app.js"></script>
+  </body>
+</html>

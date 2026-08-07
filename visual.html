@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeskLink — actual browser-based remote access</title>
+    <link rel="stylesheet" href="visual.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <span>DeskLink</span>
+        </div>
+        <p class="topbar-note">A casual local remote access setup for your own devices</p>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div class="hero-copy">
+            <p class="eyebrow">Browser remote access</p>
+            <h1>Use your Chromebook to join another browser as a peer over a local room code.</h1>
+            <p class="hero-text">
+              This browser flow is the peer-only path: the host and viewer connect directly through WebRTC, while the local server only relays the signaling handshake.
+            </p>
+            <ul class="hero-badges">
+              <li>Works from a Chromebook</li>
+              <li>No app install on the viewer</li>
+              <li>Uses WebRTC for screen sharing</li>
+            </ul>
+          </div>
+
+          <div class="hero-card">
+            <div class="card-header">
+              <span id="heroStatus" class="status-pill standby">Waiting</span>
+              <span class="subtle" id="roomCodeLabel">Room: --</span>
+            </div>
+            <p id="heroMessage" class="status-message">Open this page on the viewer device and paste the room code from the host.</p>
+            <div class="button-row compact">
+              <input id="signalingUrlInput" type="url" placeholder="https://signal.example.com" autocomplete="url" />
+              <button id="saveSignalingUrlBtn" class="secondary-btn" type="button">Use server</button>
+            </div>
+            <div id="joinUrlMessage" class="status-message address-list">Open this page on the viewer device using the local server URL shown here.</div>
+          </div>
+        </section>
+
+        <section class="panel-grid">
+          <article class="panel-card">
+            <div class="panel-heading">
+              <h2>Join a session</h2>
+              <p>Use this on your Chromebook or another device.</p>
+            </div>
+
+            <div class="button-row compact">
+              <input id="roomInput" type="text" placeholder="Enter room code" />
+              <input id="accessCodeInput" type="text" placeholder="Session passcode" autocomplete="off" />
+              <button id="joinBtn" class="primary-btn">Join</button>
+            </div>
+
+            <video id="remoteVideo" autoplay playsinline tabindex="0"></video>
+            <p id="viewerMessage" class="status-message">Paste the room code from the host device.</p>
+          </article>
+
+          <article id="hostPanel" class="panel-card host-panel">
+            <div class="panel-heading">
+              <h2>Host from this browser</h2>
+              <p>For testing the browser flow only. The native host app is still the preferred option.</p>
+            </div>
+
+            <div class="button-row">
+              <input id="hostIdInput" type="text" placeholder="Room code (optional)" />
+              <input id="allowedAccountInput" type="text" placeholder="Allowed account ID (optional)" />
+            </div>
+            <div class="button-row">
+              <button id="startHostBtn" class="primary-btn">Start hosting</button>
+              <button id="stopHostBtn" class="secondary-btn">Stop</button>
+            </div>
+
+            <video id="localVideo" autoplay muted playsinline></video>
+            <p id="hostMessage" class="status-message">Use this panel only for a local browser test.</p>
+          </article>
+        </section>
+
+        <section class="info-card">
+          <h2>How to use it</h2>
+          <ol>
+            <li>Run the project locally with the server in this folder.</li>
+            <li>Open the page on your Chromebook or viewer device.</li>
+            <li>Enter the room code from the host and click Join.</li>
+            <li>The remote screen should appear in the browser.</li>
+          </ol>
+        </section>
+      </main>
+    </div>
+
+    <script src="code.js"></script>
+  </body>
+</html>

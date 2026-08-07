@@ -1,0 +1,19 @@
+{
+  "name": "desklink-remote",
+  "version": "1.0.0",
+  "description": "A browser-based remote access prototype that runs locally on a Chromebook",
+  "main": "electron-host/main.js",
+  "scripts": {
+    "start": "node server.js",
+    "host-app": "electron electron-host/main.js",
+    "build:win": "node electron-host/build.js"
+  },
+  "dependencies": {
+    "selfsigned": "^2.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.0"
+  }
+}
