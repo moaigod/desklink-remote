@@ -7,6 +7,16 @@ public static class DeskLinkInput {
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
   [DllImport("user32.dll")] public static extern short VkKeyScan(char ch);
   [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+  [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public InputUnion U; }
+  [StructLayout(LayoutKind.Explicit)] public struct InputUnion { [FieldOffset(0)] public KEYBDINPUT ki; }
+  [StructLayout(LayoutKind.Sequential)] public struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public UIntPtr dwExtraInfo; }
+  [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint count, INPUT[] inputs, int size);
+  public static void SendUnicode(char character) {
+    var inputs = new INPUT[2];
+    inputs[0].type = 1; inputs[0].U.ki.wScan = character; inputs[0].U.ki.dwFlags = 0x0004;
+    inputs[1].type = 1; inputs[1].U.ki.wScan = character; inputs[1].U.ki.dwFlags = 0x0004 | 0x0002;
+    SendInput(2, inputs, Marshal.SizeOf(typeof(INPUT)));
+  }
 }
 '@
 
@@ -60,6 +70,8 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
           [DeskLinkInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
         }
       }
+    } elseif ($message.type -eq 'text') {
+      foreach ($character in [string]$payload.text) { [DeskLinkInput]::SendUnicode($character) }
     } elseif ($message.type -like 'key-*') {
       $vk = Get-VirtualKey $payload.key
       if ($null -ne $vk) { [DeskLinkInput]::keybd_event($vk, 0, (if ($message.type -eq 'key-up') { 0x0002 } else { 0 }), [UIntPtr]::Zero) }

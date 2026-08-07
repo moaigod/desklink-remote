@@ -252,8 +252,13 @@ function attachViewerControlHandlers() {
       return;
     }
     event.preventDefault();
-    sendControlMessage({ type: "key-down", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
-  });
+    event.stopPropagation();
+    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      sendControlMessage({ type: "text", payload: { text: event.key } });
+    } else {
+      sendControlMessage({ type: "key-down", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
+    }
+  }, true);
 
   document.addEventListener("keyup", (event) => {
     if (!connected || role !== "viewer") {
@@ -263,8 +268,12 @@ function attachViewerControlHandlers() {
       return;
     }
     event.preventDefault();
+    event.stopPropagation();
+    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      return;
+    }
     sendControlMessage({ type: "key-up", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
-  });
+  }, true);
 }
 
 function clearReconnectTimer() {

@@ -94,7 +94,7 @@ ipcMain.handle('get-connection-config', () => ({
 }));
 
 ipcMain.on('inject-input', (_event, message) => {
-  if (!message || !['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'key-down', 'key-up'].includes(message.type)) return;
+  if (!message || !['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'key-down', 'key-up', 'text'].includes(message.type)) return;
   const helper = ensureInputHelper();
   if (helper.stdin?.writable) helper.stdin.write(`${JSON.stringify(message)}\n`);
 });

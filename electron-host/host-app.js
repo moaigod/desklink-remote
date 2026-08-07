@@ -164,7 +164,7 @@ function setupControlChannel(channel) {
 
   channel.addEventListener('message', (event) => {
     const message = JSON.parse(event.data);
-    if (['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'key-down', 'key-up'].includes(message.type)) {
+    if (['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'key-down', 'key-up', 'text'].includes(message.type)) {
       if (message.type.startsWith('mouse-') && message.payload && inputDebug) {
         const x = Number(message.payload.x);
         const y = Number(message.payload.y);
