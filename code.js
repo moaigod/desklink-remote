@@ -3,6 +3,7 @@ const roomInput = document.getElementById("roomInput");
 const accessCodeInput = document.getElementById("accessCodeInput");
 const signalingUrlInput = document.getElementById("signalingUrlInput");
 const saveSignalingUrlBtn = document.getElementById("saveSignalingUrlBtn");
+const fullscreenBtn = document.getElementById("fullscreenBtn");
 const roomCodeLabel = document.getElementById("roomCodeLabel");
 const heroStatus = document.getElementById("heroStatus");
 const heroMessage = document.getElementById("heroMessage");
@@ -207,7 +208,7 @@ function attachViewerControlHandlers() {
     const position = getVideoPosition(event);
     if (!position) return;
     const { x, y } = position;
-    sendControlMessage({ type: "mouse-down", payload: { x, y, button: event.button } });
+    event.preventDefault();
   });
 
   remoteVideo.addEventListener("pointerup", (event) => {
@@ -217,7 +218,6 @@ function attachViewerControlHandlers() {
     const position = getVideoPosition(event);
     if (!position) return;
     const { x, y } = position;
-    sendControlMessage({ type: "mouse-up", payload: { x, y, button: event.button } });
     sendControlMessage({ type: "mouse-click", payload: { x, y, button: event.button } });
   });
 
@@ -227,8 +227,8 @@ function attachViewerControlHandlers() {
     }
   });
 
-  remoteVideo.addEventListener("dblclick", async () => {
-    if (role === "viewer" && remoteVideo.requestFullscreen) {
+  fullscreenBtn.addEventListener("click", async () => {
+    if (remoteVideo.requestFullscreen) {
       try {
         await remoteVideo.requestFullscreen();
       } catch (error) {

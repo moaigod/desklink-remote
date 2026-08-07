@@ -28,8 +28,12 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       continue
     }
     if ($message.type -like 'mouse-*') {
-      $x = [Math]::Max(0, [Math]::Min(1, [double]$payload.x))
-      $y = [Math]::Max(0, [Math]::Min(1, [double]$payload.y))
+      # Keep the fractional browser coordinates. PowerShell can select the
+      # integer Math.Min/Max overload here, which rounds input to 0 or 1.
+      $x = [double]$payload.x
+      $y = [double]$payload.y
+      if ($x -lt 0.0) { $x = 0.0 } elseif ($x -gt 1.0) { $x = 1.0 }
+      if ($y -lt 0.0) { $y = 0.0 } elseif ($y -gt 1.0) { $y = 1.0 }
       if ($targetBounds) {
         $left = $targetBounds.x; $top = $targetBounds.y; $width = $targetBounds.width; $height = $targetBounds.height
       } else {
@@ -47,6 +51,15 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       [DeskLinkInput]::mouse_event((0x0001 -bor 0x8000 -bor 0x4000), $absoluteX, $absoluteY, 0, [UIntPtr]::Zero)
       if ($message.type -eq 'mouse-down') { [DeskLinkInput]::mouse_event((if ($payload.button -eq 2) { 0x0008 } else { 0x0002 }), 0, 0, 0, [UIntPtr]::Zero) }
       if ($message.type -eq 'mouse-up') { [DeskLinkInput]::mouse_event((if ($payload.button -eq 2) { 0x0010 } else { 0x0004 }), 0, 0, 0, [UIntPtr]::Zero) }
+      if ($message.type -eq 'mouse-click') {
+        if ($payload.button -eq 2) {
+          [DeskLinkInput]::mouse_event(0x0008, 0, 0, 0, [UIntPtr]::Zero)
+          [DeskLinkInput]::mouse_event(0x0010, 0, 0, 0, [UIntPtr]::Zero)
+        } else {
+          [DeskLinkInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+          [DeskLinkInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+        }
+      }
     } elseif ($message.type -like 'key-*') {
       $vk = Get-VirtualKey $payload.key
       if ($null -ne $vk) { [DeskLinkInput]::keybd_event($vk, 0, (if ($message.type -eq 'key-up') { 0x0002 } else { 0 }), [UIntPtr]::Zero) }
