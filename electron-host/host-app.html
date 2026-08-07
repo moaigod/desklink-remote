@@ -21,6 +21,11 @@
 
         <div class="field-row">
           <select id="sourceSelect"></select>
+          <select id="qualitySelect" aria-label="Stream quality">
+            <option value="smooth">Smooth · lowest lag / data</option>
+            <option value="balanced" selected>Balanced · recommended</option>
+            <option value="crisp">Crisp · sharpest picture</option>
+          </select>
           <button id="startBtn">Start hosting</button>
           <button id="stopBtn" class="secondary">Stop</button>
         </div>
@@ -31,6 +36,7 @@
         </div>
 
         <p id="statusMessage" class="message">Choose a screen source and begin hosting.</p>
+        <p class="message quality-hint">Smooth is best for TURN or weak Wi‑Fi. Choose your mode before starting a session.</p>
         <p id="inputDebug" class="message">Pointer mapping: waiting for viewer input.</p>
         <p id="keyboardDebug" class="message">Keyboard input: waiting for viewer input.</p>
         <p id="controllerDebug" class="message">Controller: waiting for a browser controller.</p>

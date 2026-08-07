@@ -1,6 +1,7 @@
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const sourceSelect = document.getElementById('sourceSelect');
+const qualitySelect = document.getElementById('qualitySelect');
 const hostIdInput = document.getElementById('hostIdInput');
 const accessCodeInput = document.getElementById('accessCodeInput');
 const statusBadge = document.getElementById('statusBadge');
@@ -26,6 +27,30 @@ let connectionConfig = {
   signalingUrl: 'http://localhost:3000',
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
 };
+
+const qualityProfiles = {
+  smooth: { label: 'Smooth', width: 960, height: 540, frameRate: 30, maxBitrate: 1_500_000, contentHint: 'motion' },
+  balanced: { label: 'Balanced', width: 1280, height: 720, frameRate: 30, maxBitrate: 3_500_000, contentHint: 'detail' },
+  crisp: { label: 'Crisp', width: 1920, height: 1080, frameRate: 60, maxBitrate: 8_000_000, contentHint: 'detail' },
+};
+
+function getQualityProfile() {
+  return qualityProfiles[qualitySelect?.value] || qualityProfiles.balanced;
+}
+
+async function tuneVideoSender(sender, profile) {
+  try {
+    const parameters = sender.getParameters();
+    parameters.encodings = parameters.encodings?.length ? parameters.encodings : [{}];
+    parameters.encodings[0].maxBitrate = profile.maxBitrate;
+    parameters.encodings[0].maxFramerate = profile.frameRate;
+    parameters.degradationPreference = 'maintain-framerate';
+    await sender.setParameters(parameters);
+  } catch (error) {
+    // Capture dimensions still apply if a platform does not expose sender tuning.
+    console.warn('Could not apply bitrate tuning.', error);
+  }
+}
 
 function normalizeId(value) {
   return (value || '').toString().trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
@@ -284,6 +309,7 @@ async function populateSources() {
 
 async function startHosting() {
   const selectedSourceId = sourceSelect.value;
+  const quality = getQualityProfile();
   if (!selectedSourceId) {
     updateStatus('Pick a screen or window source first.');
     return;
@@ -320,17 +346,22 @@ async function startHosting() {
         mandatory: {
           chromeMediaSource: 'desktop',
           chromeMediaSourceId: selectedSourceId,
-          minWidth: 1280,
-          maxWidth: 1280,
-          minHeight: 720,
-          maxHeight: 720,
+          minWidth: quality.width,
+          maxWidth: quality.width,
+          minHeight: quality.height,
+          maxHeight: quality.height,
+          maxFrameRate: quality.frameRate,
         },
       },
       audio: false,
     });
 
     localStream = stream;
-    stream.getTracks().forEach((track) => peerConnection.addTrack(track, stream));
+    stream.getVideoTracks().forEach((track) => {
+      track.contentHint = quality.contentHint;
+      const sender = peerConnection.addTrack(track, stream);
+      tuneVideoSender(sender, quality);
+    });
     previewVideo.srcObject = stream;
     previewVideo.play().catch(() => {});
     const accessCode = normalizeId(accessCodeInput.value) || generateAccessCode();
@@ -338,7 +369,7 @@ async function startHosting() {
     const registerExtras = { accessCode };
     registerHost(registerExtras);
     setStatus('Hosting', 'connecting');
-    updateStatus(`Screen share is live. Viewer needs room ${roomId} and passcode ${accessCode}.`);
+    updateStatus(`${quality.label} stream is live. Viewer needs room ${roomId} and passcode ${accessCode}.`);
     window.electronAPI.minimizeHost();
   } catch (error) {
     console.error(error);
