@@ -6,6 +6,7 @@ const accessCodeInput = document.getElementById('accessCodeInput');
 const statusBadge = document.getElementById('statusBadge');
 const roomLabel = document.getElementById('roomLabel');
 const statusMessage = document.getElementById('statusMessage');
+const inputDebug = document.getElementById('inputDebug');
 const previewVideo = document.getElementById('previewVideo');
 
 let roomId = null;
@@ -18,6 +19,7 @@ let connected = false;
 let pendingRegister = null;
 let pendingIceCandidates = [];
 let captureSources = [];
+let inputBounds = null;
 let connectionConfig = {
   signalingUrl: 'http://localhost:3000',
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -163,6 +165,15 @@ function setupControlChannel(channel) {
   channel.addEventListener('message', (event) => {
     const message = JSON.parse(event.data);
     if (['mouse-move', 'mouse-down', 'mouse-up', 'key-down', 'key-up'].includes(message.type)) {
+      if (message.type.startsWith('mouse-') && message.payload && inputDebug) {
+        const x = Number(message.payload.x);
+        const y = Number(message.payload.y);
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          const targetX = inputBounds ? Math.round(x * (inputBounds.width - 1)) + inputBounds.x : 'unknown';
+          const targetY = inputBounds ? Math.round(y * (inputBounds.height - 1)) + inputBounds.y : 'unknown';
+          inputDebug.textContent = `Pointer mapping: ${x.toFixed(3)}, ${y.toFixed(3)} → ${targetX}, ${targetY}`;
+        }
+      }
       window.electronAPI.injectInput(message);
     }
   });
@@ -247,8 +258,11 @@ async function startHosting() {
 
   const selectedSource = captureSources.find((source) => source.id === selectedSourceId);
   if (selectedSource?.bounds) {
+    inputBounds = selectedSource.bounds;
     window.electronAPI.setInputBounds(selectedSource.bounds);
+    if (inputDebug) inputDebug.textContent = `Pointer target: ${inputBounds.width} × ${inputBounds.height} at ${inputBounds.x}, ${inputBounds.y}`;
   } else {
+    inputBounds = null;
     updateStatus('Window capture selected. For accurate mouse control, share an entire display.');
   }
   connectSocket();

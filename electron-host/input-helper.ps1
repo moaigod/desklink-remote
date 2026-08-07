@@ -36,7 +36,15 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
         $left = [DeskLinkInput]::GetSystemMetrics(76); $top = [DeskLinkInput]::GetSystemMetrics(77)
         $width = [DeskLinkInput]::GetSystemMetrics(78); $height = [DeskLinkInput]::GetSystemMetrics(79)
       }
-      [DeskLinkInput]::SetCursorPos($left + [int]($x * ($width - 1)), $top + [int]($y * ($height - 1))) | Out-Null
+      $targetX = $left + [int]($x * ($width - 1))
+      $targetY = $top + [int]($y * ($height - 1))
+      # Windows maps absolute injected input to the entire virtual desktop using
+      # a 0–65535 range. This avoids the DPI/desktop-session quirks of SetCursorPos.
+      $virtualLeft = [DeskLinkInput]::GetSystemMetrics(76); $virtualTop = [DeskLinkInput]::GetSystemMetrics(77)
+      $virtualWidth = [DeskLinkInput]::GetSystemMetrics(78); $virtualHeight = [DeskLinkInput]::GetSystemMetrics(79)
+      $absoluteX = [uint32][Math]::Round(65535 * (($targetX - $virtualLeft) / [Math]::Max(1, $virtualWidth - 1)))
+      $absoluteY = [uint32][Math]::Round(65535 * (($targetY - $virtualTop) / [Math]::Max(1, $virtualHeight - 1)))
+      [DeskLinkInput]::mouse_event((0x0001 -bor 0x8000 -bor 0x4000), $absoluteX, $absoluteY, 0, [UIntPtr]::Zero)
       if ($message.type -eq 'mouse-down') { [DeskLinkInput]::mouse_event((if ($payload.button -eq 2) { 0x0008 } else { 0x0002 }), 0, 0, 0, [UIntPtr]::Zero) }
       if ($message.type -eq 'mouse-up') { [DeskLinkInput]::mouse_event((if ($payload.button -eq 2) { 0x0010 } else { 0x0004 }), 0, 0, 0, [UIntPtr]::Zero) }
     } elseif ($message.type -like 'key-*') {

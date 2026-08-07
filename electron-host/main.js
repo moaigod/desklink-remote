@@ -6,6 +6,21 @@ const { spawn } = require('child_process');
 let mainWindow;
 let inputHelper;
 
+function getPhysicalDisplayBounds(display) {
+  const { x, y, width, height } = display.bounds;
+  if (process.platform === 'win32' && typeof screen.dipToScreenPoint === 'function') {
+    const topLeft = screen.dipToScreenPoint({ x, y });
+    const bottomRight = screen.dipToScreenPoint({ x: x + width, y: y + height });
+    return {
+      x: topLeft.x,
+      y: topLeft.y,
+      width: bottomRight.x - topLeft.x,
+      height: bottomRight.y - topLeft.y,
+    };
+  }
+  return { x, y, width, height };
+}
+
 function ensureInputHelper() {
   if (inputHelper && !inputHelper.killed) return inputHelper;
   inputHelper = spawn('powershell.exe', [
@@ -64,7 +79,7 @@ ipcMain.handle('get-screen-sources', async () => {
       id: source.id,
       name: source.name,
       thumbnail: source.thumbnail.toDataURL(),
-      bounds: display?.bounds || null,
+      bounds: display ? getPhysicalDisplayBounds(display) : null,
     };
   });
 });
