@@ -9,6 +9,7 @@ const heroStatus = document.getElementById("heroStatus");
 const heroMessage = document.getElementById("heroMessage");
 const joinUrlMessage = document.getElementById("joinUrlMessage");
 const viewerMessage = document.getElementById("viewerMessage");
+const controllerMessage = document.getElementById("controllerMessage");
 const hostMessage = document.getElementById("hostMessage");
 const localVideo = document.getElementById("localVideo");
 const hostIdInput = document.getElementById("hostIdInput");
@@ -38,6 +39,58 @@ let mediaReadyForOffer = false;
 let pendingIceCandidates = [];
 let iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
 let signalingBaseUrl = null;
+let controllerPollTimer = null;
+let lastControllerSnapshot = "";
+
+function roundedControllerValue(value) {
+  return Math.round(Number(value || 0) * 1000) / 1000;
+}
+
+function readControllerState(gamepad) {
+  return {
+    index: gamepad.index,
+    id: gamepad.id.slice(0, 100),
+    mapping: gamepad.mapping || "standard",
+    axes: Array.from(gamepad.axes, roundedControllerValue),
+    buttons: Array.from(gamepad.buttons, (button) => ({
+      pressed: Boolean(button.pressed),
+      touched: Boolean(button.touched),
+      value: roundedControllerValue(button.value),
+    })),
+  };
+}
+
+function stopControllerCapture() {
+  if (controllerPollTimer) window.clearInterval(controllerPollTimer);
+  controllerPollTimer = null;
+  lastControllerSnapshot = "";
+}
+
+function pollControllers() {
+  if (!connected || role !== "viewer" || !controlChannel || controlChannel.readyState !== "open") return;
+  const pads = Array.from(navigator.getGamepads ? navigator.getGamepads() : []).filter(Boolean);
+  if (!pads.length) {
+    if (controllerMessage) controllerMessage.textContent = "Controller: no controller detected on this device.";
+    return;
+  }
+  const controllers = pads.map(readControllerState);
+  const snapshot = JSON.stringify(controllers);
+  if (snapshot !== lastControllerSnapshot) {
+    lastControllerSnapshot = snapshot;
+    sendControlMessage({ type: "gamepad-state", payload: { controllers } });
+  }
+  if (controllerMessage) controllerMessage.textContent = `Controller: sending ${controllers.length} controller${controllers.length === 1 ? "" : "s"} to the host.`;
+}
+
+function startControllerCapture() {
+  stopControllerCapture();
+  if (!navigator.getGamepads) {
+    if (controllerMessage) controllerMessage.textContent = "Controller: this browser does not expose the Gamepad API.";
+    return;
+  }
+  pollControllers();
+  controllerPollTimer = window.setInterval(pollControllers, 16);
+}
 
 function getSignalingBaseUrl() {
   const configured = signalingUrlInput?.value.trim() || localStorage.getItem("desklink-signaling-url");
@@ -109,6 +162,7 @@ function setupControlChannel(channel) {
   channel.addEventListener("open", () => {
     if (role === "viewer") {
       viewerMessage.textContent = "Remote control is ready. Click and type in the shared page.";
+      startControllerCapture();
     }
   });
 
@@ -276,6 +330,16 @@ function attachViewerControlHandlers() {
     }
     sendControlMessage({ type: "key-up", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
   }, true);
+
+  window.addEventListener("gamepadconnected", (event) => {
+    if (controllerMessage) controllerMessage.textContent = `Controller connected: ${event.gamepad.id}.`;
+    pollControllers();
+  });
+
+  window.addEventListener("gamepaddisconnected", () => {
+    lastControllerSnapshot = "";
+    pollControllers();
+  });
 }
 
 function clearReconnectTimer() {
@@ -291,6 +355,7 @@ function resetPeerSession() {
   }
   peerConnection = null;
   controlChannel = null;
+  stopControllerCapture();
   offerSent = false;
   connected = false;
   signalingReady = false;
@@ -686,6 +751,7 @@ if (stopHostBtn) {
       peerConnection = null;
     }
     controlChannel = null;
+    stopControllerCapture();
     if (ws) {
       ws.close();
       ws = null;

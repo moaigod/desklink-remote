@@ -34,6 +34,10 @@ function ensureInputHelper() {
 }
 
 function ensureServer() {
+  // A packaged Electron executable cannot launch server.js with process.execPath:
+  // process.execPath is the DeskLink executable itself, which would recursively
+  // launch more host windows. Packaged builds use the public signaling server.
+  if (app.isPackaged) return Promise.resolve(false);
   return new Promise((resolve) => {
     const req = http.get('http://localhost:3000/api/host-info', (res) => {
       res.resume();
@@ -88,7 +92,9 @@ ipcMain.handle('get-screen-sources', async () => {
 ipcMain.handle('get-connection-config', () => ({
   // Set DESKLINK_SIGNALING_URL to the public HTTP(S) address of the signaling
   // server, for example https://signal.example.com. The renderer derives /ws.
-  signalingUrl: process.env.DESKLINK_SIGNALING_URL || 'http://localhost:3000',
+  signalingUrl: process.env.DESKLINK_SIGNALING_URL || (app.isPackaged
+    ? 'https://desklink-remote.onrender.com'
+    : 'http://localhost:3000'),
   // Optional JSON array of RTCIceServer objects. A TURN service is required for
   // reliable connections between different networks.
   iceServers: process.env.DESKLINK_ICE_SERVERS || '',

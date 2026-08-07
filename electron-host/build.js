@@ -7,21 +7,16 @@ build({
     directories: {
       output: 'dist'
     },
+    // Keep the portable beginner build simple and avoid archive-layout issues.
+    // This is a convenience package, not a security boundary.
+    asar: false,
     files: [
       'electron-host/**',
       'server.js',
       'visual.html',
       'visual.css',
       'code.js',
-      'package.json',
-      'node_modules/**'
-    ],
-    extraFiles: [
-      {
-        from: '.',
-        to: '.',
-        filter: ['server.js', 'visual.html', 'visual.css', 'code.js', 'package.json', 'node_modules/**']
-      }
+      'package.json'
     ],
     win: {
       target: ['portable']

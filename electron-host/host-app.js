@@ -8,6 +8,7 @@ const roomLabel = document.getElementById('roomLabel');
 const statusMessage = document.getElementById('statusMessage');
 const inputDebug = document.getElementById('inputDebug');
 const keyboardDebug = document.getElementById('keyboardDebug');
+const controllerDebug = document.getElementById('controllerDebug');
 const previewVideo = document.getElementById('previewVideo');
 
 let roomId = null;
@@ -165,6 +166,18 @@ function setupControlChannel(channel) {
 
   channel.addEventListener('message', (event) => {
     const message = JSON.parse(event.data);
+    if (message.type === 'gamepad-state') {
+      const controllers = Array.isArray(message.payload?.controllers) ? message.payload.controllers : [];
+      if (controllerDebug) {
+        if (!controllers.length) {
+          controllerDebug.textContent = 'Controller: viewer has no controller connected.';
+        } else {
+          const pressed = controllers.reduce((total, controller) => total + (controller.buttons || []).filter((button) => button.pressed).length, 0);
+          controllerDebug.textContent = `Controller signal received: ${controllers.length} controller${controllers.length === 1 ? '' : 's'}, ${pressed} button${pressed === 1 ? '' : 's'} pressed. Virtual controller driver not installed.`;
+        }
+      }
+      return;
+    }
     if (['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'key-down', 'key-up', 'text'].includes(message.type)) {
       if (message.type.startsWith('mouse-') && message.payload && inputDebug) {
         const x = Number(message.payload.x);

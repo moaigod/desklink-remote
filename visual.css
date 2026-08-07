@@ -315,6 +315,10 @@ body {
 .status-pill.standby { background: #ffe56a; color: #2a1346; }
 .status-pill.connecting { background: #7cf5c6; color: #092e29; }
 
+.controller-message {
+  color: #b7ffd9;
+}
+
 input {
   background: rgba(255, 255, 255, 0.12);
   color: #fff8ec;
