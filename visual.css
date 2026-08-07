@@ -251,7 +251,36 @@ input {
   padding: 0;
 }
 
-#remoteVideo:fullscreen {
+body.remote-fullscreen {
+  overflow: hidden;
+  background: #000;
+}
+
+body.remote-fullscreen .app-shell,
+body.remote-fullscreen main,
+body.remote-fullscreen .panel-grid,
+body.remote-fullscreen .panel-card {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body.remote-fullscreen .topbar,
+body.remote-fullscreen .hero,
+body.remote-fullscreen .panel-heading,
+body.remote-fullscreen .button-row,
+body.remote-fullscreen #viewerMessage,
+body.remote-fullscreen .info-card,
+body.remote-fullscreen .host-panel {
+  display: none !important;
+}
+
+body.remote-fullscreen #remoteVideo {
   display: block;
   width: 100vw;
   height: 100vh;

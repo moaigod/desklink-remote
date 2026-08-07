@@ -11,11 +11,11 @@ public static class DeskLinkInput {
   [StructLayout(LayoutKind.Explicit)] public struct InputUnion { [FieldOffset(0)] public KEYBDINPUT ki; }
   [StructLayout(LayoutKind.Sequential)] public struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public UIntPtr dwExtraInfo; }
   [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint count, INPUT[] inputs, int size);
-  public static void SendUnicode(char character) {
+  public static uint SendUnicode(char character) {
     var inputs = new INPUT[2];
     inputs[0].type = 1; inputs[0].U.ki.wScan = character; inputs[0].U.ki.dwFlags = 0x0004;
     inputs[1].type = 1; inputs[1].U.ki.wScan = character; inputs[1].U.ki.dwFlags = 0x0004 | 0x0002;
-    SendInput(2, inputs, Marshal.SizeOf(typeof(INPUT)));
+    return SendInput(2, inputs, Marshal.SizeOf(typeof(INPUT)));
   }
 }
 '@
@@ -59,8 +59,14 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       $absoluteX = [uint32][Math]::Round(65535 * (($targetX - $virtualLeft) / [Math]::Max(1, $virtualWidth - 1)))
       $absoluteY = [uint32][Math]::Round(65535 * (($targetY - $virtualTop) / [Math]::Max(1, $virtualHeight - 1)))
       [DeskLinkInput]::mouse_event((0x0001 -bor 0x8000 -bor 0x4000), $absoluteX, $absoluteY, 0, [UIntPtr]::Zero)
-      if ($message.type -eq 'mouse-down') { [DeskLinkInput]::mouse_event((if ($payload.button -eq 2) { 0x0008 } else { 0x0002 }), 0, 0, 0, [UIntPtr]::Zero) }
-      if ($message.type -eq 'mouse-up') { [DeskLinkInput]::mouse_event((if ($payload.button -eq 2) { 0x0010 } else { 0x0004 }), 0, 0, 0, [UIntPtr]::Zero) }
+      if ($message.type -eq 'mouse-down') {
+        $downFlag = if ($payload.button -eq 2) { 0x0008 } else { 0x0002 }
+        [DeskLinkInput]::mouse_event($downFlag, 0, 0, 0, [UIntPtr]::Zero)
+      }
+      if ($message.type -eq 'mouse-up') {
+        $upFlag = if ($payload.button -eq 2) { 0x0010 } else { 0x0004 }
+        [DeskLinkInput]::mouse_event($upFlag, 0, 0, 0, [UIntPtr]::Zero)
+      }
       if ($message.type -eq 'mouse-click') {
         if ($payload.button -eq 2) {
           [DeskLinkInput]::mouse_event(0x0008, 0, 0, 0, [UIntPtr]::Zero)
@@ -71,10 +77,17 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
         }
       }
     } elseif ($message.type -eq 'text') {
-      foreach ($character in [string]$payload.text) { [DeskLinkInput]::SendUnicode($character) }
+      foreach ($character in [string]$payload.text) {
+        $sent = [DeskLinkInput]::SendUnicode([char]$character)
+        if ($sent -ne 2) { throw "SendInput injected $sent of 2 Unicode keyboard events." }
+      }
     } elseif ($message.type -like 'key-*') {
       $vk = Get-VirtualKey $payload.key
-      if ($null -ne $vk) { [DeskLinkInput]::keybd_event($vk, 0, (if ($message.type -eq 'key-up') { 0x0002 } else { 0 }), [UIntPtr]::Zero) }
+      if ($null -ne $vk) {
+        $keyFlags = 0
+        if ($message.type -eq 'key-up') { $keyFlags = 0x0002 }
+        [DeskLinkInput]::keybd_event($vk, 0, $keyFlags, [UIntPtr]::Zero)
+      }
     }
   } catch { [Console]::Error.WriteLine($_.Exception.Message) }
 }

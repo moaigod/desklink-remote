@@ -232,7 +232,7 @@ function attachViewerControlHandlers() {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       } else {
-        await remoteVideo.requestFullscreen();
+        await document.documentElement.requestFullscreen();
       }
     } catch (error) {
       console.warn("Fullscreen request failed", error);
@@ -240,7 +240,9 @@ function attachViewerControlHandlers() {
   });
 
   document.addEventListener("fullscreenchange", () => {
-    fullscreenBtn.textContent = document.fullscreenElement ? "Exit fullscreen" : "Fullscreen";
+    const isFullscreen = Boolean(document.fullscreenElement);
+    document.body.classList.toggle("remote-fullscreen", isFullscreen);
+    fullscreenBtn.textContent = isFullscreen ? "Exit fullscreen" : "Fullscreen";
   });
 
   document.addEventListener("keydown", (event) => {
