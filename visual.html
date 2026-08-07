@@ -49,15 +49,24 @@
           <article class="panel-card">
             <div class="panel-heading">
               <h2>Hop into a desktop</h2>
-              <p>Bring the room code and secret passcode.</p>
+              <p>New computer? Use its ID. Returning? Pick it below.</p>
             </div>
 
             <div class="button-row compact">
-              <input id="roomInput" type="text" placeholder="Enter room code" />
-              <input id="accessCodeInput" type="text" placeholder="Session passcode" autocomplete="off" />
+              <input id="roomInput" type="text" placeholder="Computer ID (new connection)" />
+              <input id="accessCodeInput" type="password" placeholder="Computer password" autocomplete="current-password" />
               <button id="joinBtn" class="primary-btn">Join</button>
               <button id="fullscreenBtn" class="secondary-btn" type="button">Fullscreen</button>
             </div>
+
+            <section id="recentSessions" class="recent-sessions" hidden>
+              <div class="recent-header">
+                <span>Recent computers</span>
+                <button id="clearRecentSessionsBtn" class="text-btn" type="button">Forget all</button>
+              </div>
+              <div id="recentSessionList" class="recent-session-list"></div>
+              <p class="recent-note">Saved only in this browser. Passcodes are never saved.</p>
+            </section>
 
             <video id="remoteVideo" autoplay playsinline tabindex="0"></video>
             <p id="viewerMessage" class="status-message">Waiting for a portal address…</p>

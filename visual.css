@@ -319,6 +319,57 @@ body {
   color: #b7ffd9;
 }
 
+.recent-sessions {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  border-radius: 14px;
+  background: rgba(7, 4, 31, 0.24);
+}
+
+.recent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  color: #fff8ec;
+  font-weight: 700;
+}
+
+.recent-session-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.recent-session-btn,
+.text-btn {
+  font: inherit;
+  cursor: pointer;
+}
+
+.recent-session-btn {
+  border: 1px solid rgba(124, 245, 198, 0.48);
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(124, 245, 198, 0.15);
+  color: #eafff8;
+}
+
+.text-btn {
+  border: 0;
+  background: transparent;
+  color: #ffc75f;
+  text-decoration: underline;
+}
+
+.recent-note {
+  margin: 9px 0 0;
+  color: #d6c9ef;
+  font-size: 0.84rem;
+}
+
 input {
   background: rgba(255, 255, 255, 0.12);
   color: #fff8ec;

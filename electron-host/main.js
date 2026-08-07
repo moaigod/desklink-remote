@@ -1,10 +1,54 @@
-const { app, BrowserWindow, desktopCapturer, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, desktopCapturer, ipcMain, screen, Menu, Tray, nativeImage } = require('electron');
 const http = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
 
 let mainWindow;
 let inputHelper;
+let tray;
+let isQuitting = false;
+const launchInBackground = process.argv.includes('--background');
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function createTray() {
+  if (tray) return;
+  // A tiny built-in icon means the portable app does not need a separate asset.
+  const icon = nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAACTSURBVHgBpZKBCYAgEEV/TeAIjuIIbdQIuUGt0CS1gW1iZ2jIVaTnhw+Cvs8/OYDJA4Y8kR3ZR2/kmazxJbpUEfQ/Dm/UG7wVwHkjlQdMFfDdJMFaACebnjJGyDWgcnZu1/lrCrl6NCoEHJBrDwEr5NrT6ko/UV8xdLAC2N49mlc5CylpYh8wCwqrvbBGLoKGvz8Bfq0QPWEUo/EAAAAASUVORK5CYII=');
+  tray = new Tray(icon);
+  tray.setToolTip('DeskLink Host App');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'DeskLink Host App', enabled: false },
+    { type: 'separator' },
+    { label: 'Open DeskLink', click: showMainWindow },
+    {
+      label: 'Run when I sign in',
+      type: 'checkbox',
+      checked: process.platform === 'win32' && app.getLoginItemSettings().openAtLogin,
+      click: (item) => {
+        if (process.platform === 'win32') {
+          app.setLoginItemSettings({ openAtLogin: item.checked, args: ['--background'] });
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit DeskLink',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]));
+  tray.on('click', showMainWindow);
+}
 
 function getPhysicalDisplayBounds(display) {
   const { x, y, width, height } = display.bounds;
@@ -60,6 +104,7 @@ function createWindow() {
     width: 1100,
     height: 780,
     title: 'DeskLink Host App',
+    show: !launchInBackground,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -68,6 +113,12 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'host-app.html'));
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
 }
 
 ipcMain.handle('get-screen-sources', async () => {
@@ -117,14 +168,16 @@ ipcMain.on('minimize-host', () => {
 });
 
 app.whenReady().then(async () => {
+  if (process.platform === 'win32' && app.isPackaged) {
+    app.setLoginItemSettings({ openAtLogin: true, args: ['--background'] });
+  }
   await ensureServer();
+  createTray();
   createWindow();
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // Keep the process (and an active host session) alive in the tray.
 });
 
 app.on('before-quit', () => {
@@ -132,7 +185,5 @@ app.on('before-quit', () => {
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+  showMainWindow();
 });

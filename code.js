@@ -10,6 +10,9 @@ const heroMessage = document.getElementById("heroMessage");
 const joinUrlMessage = document.getElementById("joinUrlMessage");
 const viewerMessage = document.getElementById("viewerMessage");
 const controllerMessage = document.getElementById("controllerMessage");
+const recentSessions = document.getElementById("recentSessions");
+const recentSessionList = document.getElementById("recentSessionList");
+const clearRecentSessionsBtn = document.getElementById("clearRecentSessionsBtn");
 const hostMessage = document.getElementById("hostMessage");
 const localVideo = document.getElementById("localVideo");
 const hostIdInput = document.getElementById("hostIdInput");
@@ -41,6 +44,48 @@ let iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
 let signalingBaseUrl = null;
 let controllerPollTimer = null;
 let lastControllerSnapshot = "";
+const recentSessionsKey = "desklink-recent-sessions";
+
+function getRecentSessions() {
+  try {
+    const sessions = JSON.parse(localStorage.getItem(recentSessionsKey) || "[]");
+    return Array.isArray(sessions) ? sessions.filter((session) => session?.roomId && session?.signalingUrl) : [];
+  } catch {
+    return [];
+  }
+}
+
+function renderRecentSessions() {
+  const sessions = getRecentSessions();
+  if (!recentSessions || !recentSessionList) return;
+  recentSessions.hidden = sessions.length === 0;
+  recentSessionList.replaceChildren();
+  sessions.forEach((session) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "recent-session-btn";
+    button.textContent = `Computer ${session.roomId}`;
+    button.title = session.signalingUrl;
+    button.addEventListener("click", () => {
+      roomInput.value = session.roomId;
+      signalingUrlInput.value = session.signalingUrl;
+      accessCodeInput.value = "";
+      accessCodeInput.focus();
+      loadJoinUrl();
+      viewerMessage.textContent = `Ready to reconnect to computer ${session.roomId}. Enter its password.`;
+    });
+    recentSessionList.appendChild(button);
+  });
+}
+
+function rememberCurrentSession(roomCode) {
+  if (!signalingBaseUrl || !roomCode) return;
+  const next = [{ roomId: roomCode, signalingUrl: signalingBaseUrl }, ...getRecentSessions()
+    .filter((session) => !(session.roomId === roomCode && session.signalingUrl === signalingBaseUrl))]
+    .slice(0, 8);
+  localStorage.setItem(recentSessionsKey, JSON.stringify(next));
+  renderRecentSessions();
+}
 
 function roundedControllerValue(value) {
   return Math.round(Number(value || 0) * 1000) / 1000;
@@ -718,7 +763,7 @@ async function startHosting() {
 async function joinSession() {
   const code = normalizeId(roomInput.value);
   if (!code) {
-    viewerMessage.textContent = "Enter a room code from the host device.";
+    viewerMessage.textContent = "Enter a Computer ID, or choose one from Recent computers.";
     return;
   }
 
@@ -730,6 +775,7 @@ async function joinSession() {
   sessionActive = true;
   stopRequested = false;
   roomId = code;
+  rememberCurrentSession(code);
 
   roomCodeLabel.textContent = `Room: ${roomId}`;
   heroMessage.textContent = "Trying to connect to the host.";
@@ -743,6 +789,13 @@ async function joinSession() {
 
 joinBtn.addEventListener("click", joinSession);
 saveSignalingUrlBtn.addEventListener("click", loadJoinUrl);
+
+if (clearRecentSessionsBtn) {
+  clearRecentSessionsBtn.addEventListener("click", () => {
+    localStorage.removeItem(recentSessionsKey);
+    renderRecentSessions();
+  });
+}
 
 if (startHostBtn) {
   startHostBtn.addEventListener("click", startHosting);
@@ -796,6 +849,7 @@ joinUrlMessage.innerHTML = "Open this page on the viewer device using the local 
 if (hostMessage) {
   hostMessage.textContent = "Use this panel only for a local browser test.";
 }
-viewerMessage.textContent = "Paste the room code from the host device. After you connect, click and type into the shared page, or double-click the video to fullscreen.";
+    viewerMessage.textContent = "Enter a Computer ID for a new connection, or choose a saved computer. After connecting, click and type into the shared page.";
 
+renderRecentSessions();
 loadJoinUrl();

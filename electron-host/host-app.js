@@ -33,6 +33,26 @@ const qualityProfiles = {
   balanced: { label: 'Balanced', width: 1280, height: 720, frameRate: 30, maxBitrate: 3_500_000, contentHint: 'detail' },
   crisp: { label: 'Crisp', width: 1920, height: 1080, frameRate: 60, maxBitrate: 8_000_000, contentHint: 'detail' },
 };
+const hostPreferencesKey = 'desklink-host-preferences';
+
+function loadHostPreferences() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(hostPreferencesKey) || '{}');
+    if (saved.hostId) hostIdInput.value = normalizeId(saved.hostId);
+    if (saved.accessCode) accessCodeInput.value = saved.accessCode;
+    if (saved.quality && qualityProfiles[saved.quality] && qualitySelect) qualitySelect.value = saved.quality;
+  } catch {
+    // A fresh app simply starts with blank defaults.
+  }
+}
+
+function saveHostPreferences(hostId, accessCode = accessCodeInput.value) {
+  localStorage.setItem(hostPreferencesKey, JSON.stringify({
+    hostId: normalizeId(hostId),
+    accessCode: normalizeId(accessCode),
+    quality: qualitySelect?.value || 'balanced',
+  }));
+}
 
 function getQualityProfile() {
   return qualityProfiles[qualitySelect?.value] || qualityProfiles.balanced;
@@ -159,6 +179,7 @@ function registerHost(extras = {}) {
   pendingRegister = extras;
   const hostId = normalizeId(hostIdInput.value) || generateRoomId();
   hostIdInput.value = hostId;
+  saveHostPreferences(hostId, extras.accessCode);
   roomId = hostId;
   roomLabel.textContent = `Room: ${roomId}`;
 
@@ -366,10 +387,11 @@ async function startHosting() {
     previewVideo.play().catch(() => {});
     const accessCode = normalizeId(accessCodeInput.value) || generateAccessCode();
     accessCodeInput.value = accessCode;
+    saveHostPreferences(roomId, accessCode);
     const registerExtras = { accessCode };
     registerHost(registerExtras);
     setStatus('Hosting', 'connecting');
-    updateStatus(`${quality.label} stream is live. Viewer needs room ${roomId} and passcode ${accessCode}.`);
+    updateStatus(`${quality.label} stream is live. New viewers need computer ID ${roomId} and its password.`);
     window.electronAPI.minimizeHost();
   } catch (error) {
     console.error(error);
@@ -399,5 +421,6 @@ startBtn.addEventListener('click', startHosting);
 stopBtn.addEventListener('click', stopHosting);
 
 populateSources();
+loadHostPreferences();
 setStatus('Waiting', 'standby');
 updateStatus('Select a source and start hosting.');
