@@ -1,6 +1,8 @@
 # Dependencies and build output
 node_modules/
 dist/
+DeskLink-*-release.zip
+assets/embedded-exe-icon.png
 
 # Local TLS credentials and deployment secrets
 cert.pem

@@ -9,6 +9,12 @@ let tray;
 let isQuitting = false;
 const launchInBackground = process.argv.includes('--background');
 
+function assetPath(fileName) {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'app', 'assets', fileName)
+    : path.join(__dirname, '..', 'assets', fileName);
+}
+
 function showMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     createWindow();
@@ -20,8 +26,7 @@ function showMainWindow() {
 
 function createTray() {
   if (tray) return;
-  // A tiny built-in icon means the portable app does not need a separate asset.
-  const icon = nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAACTSURBVHgBpZKBCYAgEEV/TeAIjuIIbdQIuUGt0CS1gW1iZ2jIVaTnhw+Cvs8/OYDJA4Y8kR3ZR2/kmazxJbpUEfQ/Dm/UG7wVwHkjlQdMFfDdJMFaACebnjJGyDWgcnZu1/lrCrl6NCoEHJBrDwEr5NrT6ko/UV8xdLAC2N49mlc5CylpYh8wCwqrvbBGLoKGvz8Bfq0QPWEUo/EAAAAASUVORK5CYII=');
+  const icon = nativeImage.createFromPath(assetPath('desklink-icon.png'));
   tray = new Tray(icon);
   tray.setToolTip('DeskLink Host App');
   tray.setContextMenu(Menu.buildFromTemplate([
@@ -48,6 +53,14 @@ function createTray() {
     },
   ]));
   tray.on('click', showMainWindow);
+}
+
+// Background hosting means the app may not have a visible window. Make a
+// second double-click reopen that one instance instead of starting another host.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => showMainWindow());
 }
 
 function getPhysicalDisplayBounds(display) {
@@ -104,6 +117,7 @@ function createWindow() {
     width: 1100,
     height: 780,
     title: 'DeskLink Host App',
+    icon: assetPath('desklink.ico'),
     show: !launchInBackground,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

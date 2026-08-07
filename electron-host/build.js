@@ -16,10 +16,12 @@ build({
       'visual.html',
       'visual.css',
       'code.js',
+      'assets/**',
       'package.json'
     ],
     win: {
-      target: ['portable']
+      target: ['portable'],
+      icon: 'assets/desklink.ico'
     }
   }
 }).then(() => {

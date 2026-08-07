@@ -101,6 +101,19 @@ button.secondary {
   line-height: 1.6;
 }
 
+.host-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.host-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
 .quality-hint {
   font-size: 0.9rem;
   opacity: 0.82;
