@@ -39,6 +39,10 @@ Windows through its local input helper. Only start a session when you intend to 
 the viewer to control the host, and share the generated session passcode only with the
 person who should connect.
 
+For correct pointer mapping, select an entire display in the host app instead of an
+individual window. The viewer maps input to the visible video frame and the host maps
+it to that selected display.
+
 ## Connecting from outside the home network
 
 The bundled server is local-network only. For an Internet connection, deploy `server.js`

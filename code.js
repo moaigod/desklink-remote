@@ -194,9 +194,9 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
-    const rect = remoteVideo.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
+    const position = getVideoPosition(event);
+    if (!position) return;
+    const { x, y } = position;
     sendControlMessage({ type: "mouse-move", payload: { x, y } });
   });
 
@@ -204,9 +204,9 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
-    const rect = remoteVideo.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
+    const position = getVideoPosition(event);
+    if (!position) return;
+    const { x, y } = position;
     sendControlMessage({ type: "mouse-down", payload: { x, y, button: event.button } });
   });
 
@@ -214,9 +214,9 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
-    const rect = remoteVideo.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
+    const position = getVideoPosition(event);
+    if (!position) return;
+    const { x, y } = position;
     sendControlMessage({ type: "mouse-up", payload: { x, y, button: event.button } });
     sendControlMessage({ type: "mouse-click", payload: { x, y, button: event.button } });
   });
@@ -527,6 +527,21 @@ async function handleSignal(payload) {
   } catch (error) {
     reportStatus("The WebRTC signaling handshake failed. Try again with a fresh room code.", error);
   }
+}
+
+function getVideoPosition(event) {
+  const rect = remoteVideo.getBoundingClientRect();
+  const sourceWidth = remoteVideo.videoWidth || rect.width;
+  const sourceHeight = remoteVideo.videoHeight || rect.height;
+  const scale = Math.min(rect.width / sourceWidth, rect.height / sourceHeight);
+  const contentWidth = sourceWidth * scale;
+  const contentHeight = sourceHeight * scale;
+  const contentLeft = rect.left + (rect.width - contentWidth) / 2;
+  const contentTop = rect.top + (rect.height - contentHeight) / 2;
+  const x = (event.clientX - contentLeft) / contentWidth;
+  const y = (event.clientY - contentTop) / contentHeight;
+  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+  return { x, y };
 }
 
 async function addPendingIceCandidates() {

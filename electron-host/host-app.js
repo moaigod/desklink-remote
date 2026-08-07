@@ -17,6 +17,7 @@ let localStream = null;
 let connected = false;
 let pendingRegister = null;
 let pendingIceCandidates = [];
+let captureSources = [];
 let connectionConfig = {
   signalingUrl: 'http://localhost:3000',
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -222,6 +223,7 @@ async function populateSources() {
       option.textContent = source.name;
       sourceSelect.appendChild(option);
     });
+    captureSources = sources;
   } catch (error) {
     console.error(error);
     updateStatus('Screen source lookup failed.');
@@ -241,6 +243,13 @@ async function startHosting() {
     console.error(error);
     updateStatus('Could not load the signaling configuration.');
     return;
+  }
+
+  const selectedSource = captureSources.find((source) => source.id === selectedSourceId);
+  if (selectedSource?.bounds) {
+    window.electronAPI.setInputBounds(selectedSource.bounds);
+  } else {
+    updateStatus('Window capture selected. For accurate mouse control, share an entire display.');
   }
   connectSocket();
   ensurePeerConnection();

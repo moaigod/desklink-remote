@@ -217,7 +217,7 @@ video {
   margin: 14px 0 8px;
   border-radius: 18px;
   background: #2f241d;
-  object-fit: cover;
+  object-fit: contain;
   border: 1px solid rgba(47, 36, 29, 0.08);
   cursor: crosshair;
   touch-action: none;

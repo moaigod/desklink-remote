@@ -1,4 +1,4 @@
-const { app, BrowserWindow, desktopCapturer, ipcMain } = require('electron');
+const { app, BrowserWindow, desktopCapturer, ipcMain, screen } = require('electron');
 const http = require('http');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -52,7 +52,21 @@ function createWindow() {
 
 ipcMain.handle('get-screen-sources', async () => {
   const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], fetchWindowIcons: true, thumbnailSize: { width: 320, height: 180 } });
-  return sources.map((source) => ({ id: source.id, name: source.name, thumbnail: source.thumbnail.toDataURL() }));
+  const displays = screen.getAllDisplays();
+  return sources.map((source) => {
+    let display = displays.find((item) => String(item.id) === String(source.display_id));
+    // Some Electron/Windows combinations omit display_id. Screen sources use
+    // screen:<index>:<...>, so use that index as a reliable fallback.
+    const sourceMatch = /^screen:(\d+):/.exec(source.id);
+    if (!display && sourceMatch) display = displays[Number(sourceMatch[1])];
+    if (!display && sourceMatch) display = screen.getPrimaryDisplay();
+    return {
+      id: source.id,
+      name: source.name,
+      thumbnail: source.thumbnail.toDataURL(),
+      bounds: display?.bounds || null,
+    };
+  });
 });
 
 ipcMain.handle('get-connection-config', () => ({
@@ -68,6 +82,12 @@ ipcMain.on('inject-input', (_event, message) => {
   if (!message || !['mouse-move', 'mouse-down', 'mouse-up', 'key-down', 'key-up'].includes(message.type)) return;
   const helper = ensureInputHelper();
   if (helper.stdin?.writable) helper.stdin.write(`${JSON.stringify(message)}\n`);
+});
+
+ipcMain.on('set-input-bounds', (_event, bounds) => {
+  if (!bounds || !Number.isFinite(bounds.x) || !Number.isFinite(bounds.y) || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) return;
+  const helper = ensureInputHelper();
+  if (helper.stdin?.writable) helper.stdin.write(`${JSON.stringify({ type: 'configure-display', payload: bounds })}\n`);
 });
 
 app.whenReady().then(async () => {
