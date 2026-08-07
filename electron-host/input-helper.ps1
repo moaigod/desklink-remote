@@ -21,7 +21,15 @@ public static class DeskLinkInput {
 }
 '@
 
-$keyMap = @{ Backspace = 0x08; Tab = 0x09; Enter = 0x0D; Escape = 0x1B; ' ' = 0x20; Shift = 0x10; Control = 0x11; Alt = 0x12; Meta = 0x5B; ArrowLeft = 0x25; ArrowUp = 0x26; ArrowRight = 0x27; ArrowDown = 0x28; Delete = 0x2E; Home = 0x24; End = 0x23; PageUp = 0x21; PageDown = 0x22 }
+$keyMap = @{
+  Backspace = 0x08; Tab = 0x09; Enter = 0x0D; Escape = 0x1B; ' ' = 0x20
+  Shift = 0x10; Control = 0x11; Alt = 0x12; Meta = 0x5B; CapsLock = 0x14
+  ArrowLeft = 0x25; ArrowUp = 0x26; ArrowRight = 0x27; ArrowDown = 0x28
+  Home = 0x24; End = 0x23; PageUp = 0x21; PageDown = 0x22; Insert = 0x2D; Delete = 0x2E
+  Pause = 0x13; PrintScreen = 0x2C; ScrollLock = 0x91; NumLock = 0x90; ContextMenu = 0x5D
+  BrowserBack = 0xA6; BrowserForward = 0xA7; BrowserRefresh = 0xA8; BrowserStop = 0xA9; BrowserSearch = 0xAA; BrowserFavorites = 0xAB; BrowserHome = 0xAC
+  AudioVolumeMute = 0xAD; AudioVolumeDown = 0xAE; AudioVolumeUp = 0xAF; MediaTrackNext = 0xB0; MediaTrackPrevious = 0xB1; MediaStop = 0xB2; MediaPlayPause = 0xB3
+}
 $targetBounds = $null
 function Get-VirtualKey($key) {
   if ($keyMap.ContainsKey($key)) { return [byte]$keyMap[$key] }

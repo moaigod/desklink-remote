@@ -251,6 +251,81 @@ input {
   padding: 0;
 }
 
+/* A little less control room, a little more desktop portal. */
+body {
+  font-family: "Trebuchet MS", "Comic Sans MS", "Segoe UI", sans-serif;
+  color: #fff8ec;
+  background:
+    radial-gradient(circle at 10% 12%, rgba(255, 130, 183, 0.6) 0 2px, transparent 3px),
+    radial-gradient(circle at 85% 20%, rgba(124, 245, 198, 0.55) 0 3px, transparent 4px),
+    radial-gradient(circle at 75% 75%, rgba(255, 218, 110, 0.5) 0 2px, transparent 3px),
+    linear-gradient(145deg, #281048, #182c61 55%, #33165d);
+}
+
+.brand-mark {
+  background: linear-gradient(135deg, #ffe56a, #ff82b7, #a98cff);
+  box-shadow: 0 0 18px rgba(255, 130, 183, 0.9);
+}
+
+.hero h1 {
+  font-size: clamp(2.25rem, 5vw, 4rem);
+  text-shadow: 3px 3px 0 rgba(26, 8, 58, 0.32);
+}
+
+.hero-card,
+.panel-card,
+.info-card {
+  background: rgba(39, 24, 77, 0.78);
+  border-color: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 50px rgba(11, 3, 35, 0.35);
+}
+
+.hero-text,
+.panel-heading p,
+.status-message,
+.info-card li,
+.topbar-note,
+.subtle {
+  color: #d6c9ef;
+}
+
+.hero-badges li {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff8ec;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #ff82b7, #ffc75f);
+  color: #30133e;
+  box-shadow: 0 8px 0 #9a3e7a, 0 14px 24px rgba(0, 0, 0, 0.25);
+}
+
+.secondary-btn {
+  background: rgba(124, 245, 198, 0.18);
+  color: #eafff8;
+  border-color: rgba(124, 245, 198, 0.45);
+}
+
+.primary-btn:hover,
+.secondary-btn:hover {
+  transform: translateY(-3px) rotate(-1deg);
+}
+
+.status-pill.standby { background: #ffe56a; color: #2a1346; }
+.status-pill.connecting { background: #7cf5c6; color: #092e29; }
+
+input {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff8ec;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+video {
+  background: #100a23;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.08), 0 12px 34px rgba(3, 0, 15, 0.42);
+}
+
 body.remote-fullscreen {
   overflow: hidden;
   background: #000;
