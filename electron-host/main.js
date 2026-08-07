@@ -80,14 +80,43 @@ function getPhysicalDisplayBounds(display) {
 
 function ensureInputHelper() {
   if (inputHelper && !inputHelper.killed) return inputHelper;
-  inputHelper = spawn('powershell.exe', [
+  const helper = spawn('powershell.exe', [
     '-NoProfile',
     '-ExecutionPolicy', 'Bypass',
     '-File', path.join(__dirname, 'input-helper.ps1'),
   ], { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
-  inputHelper.stderr.on('data', (data) => console.error(`DeskLink input helper: ${data.toString().trim()}`));
-  inputHelper.on('exit', () => { inputHelper = null; });
-  return inputHelper;
+  inputHelper = helper;
+  helper.stderr.on('data', (data) => console.error(`DeskLink input helper: ${data.toString().trim()}`));
+  helper.stdin.on('error', (error) => {
+    if (error.code !== 'EPIPE') console.error('DeskLink input helper stream error:', error);
+    if (inputHelper === helper) inputHelper = null;
+  });
+  helper.on('error', (error) => {
+    console.error('DeskLink input helper failed to start:', error);
+    if (inputHelper === helper) inputHelper = null;
+  });
+  helper.on('exit', () => {
+    if (inputHelper === helper) inputHelper = null;
+  });
+  return helper;
+}
+
+function sendToInputHelper(message) {
+  const helper = ensureInputHelper();
+  if (!helper.stdin || helper.stdin.destroyed || !helper.stdin.writable) {
+    if (inputHelper === helper) inputHelper = null;
+    return;
+  }
+  try {
+    helper.stdin.write(`${JSON.stringify(message)}\n`, (error) => {
+      if (!error) return;
+      if (error.code !== 'EPIPE') console.error('DeskLink input write failed:', error);
+      if (inputHelper === helper) inputHelper = null;
+    });
+  } catch (error) {
+    if (error.code !== 'EPIPE') console.error('DeskLink input write failed:', error);
+    if (inputHelper === helper) inputHelper = null;
+  }
 }
 
 function ensureServer() {
@@ -167,14 +196,12 @@ ipcMain.handle('get-connection-config', () => ({
 
 ipcMain.on('inject-input', (_event, message) => {
   if (!message || !['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'key-down', 'key-up', 'text'].includes(message.type)) return;
-  const helper = ensureInputHelper();
-  if (helper.stdin?.writable) helper.stdin.write(`${JSON.stringify(message)}\n`);
+  sendToInputHelper(message);
 });
 
 ipcMain.on('set-input-bounds', (_event, bounds) => {
   if (!bounds || !Number.isFinite(bounds.x) || !Number.isFinite(bounds.y) || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) return;
-  const helper = ensureInputHelper();
-  if (helper.stdin?.writable) helper.stdin.write(`${JSON.stringify({ type: 'configure-display', payload: bounds })}\n`);
+  sendToInputHelper({ type: 'configure-display', payload: bounds });
 });
 
 ipcMain.on('minimize-host', () => {
