@@ -153,6 +153,29 @@ function reportStatus(message, detail = null) {
 function sendControlMessage(message) {
   if (controlChannel && controlChannel.readyState === "open") {
     controlChannel.send(JSON.stringify(message));
+    return;
+  }
+  // Some relay-only WebRTC paths carry video but fail to establish SCTP data.
+  // Fall back to the already authenticated signaling socket for control.
+  if (role === "viewer" && ws && ws.readyState === WebSocket.OPEN && roomId) {
+    ws.send(JSON.stringify({ type: "control", roomId, role, payload: message }));
+    viewerMessage.textContent = "Remote screen is live. Control is using the secure server relay.";
+  }
+}
+
+function handleInboundControlMessage(message) {
+  if (message.type === "mouse-move") {
+      handleRemoteMouseMove(message.payload);
+  } else if (message.type === "mouse-down") {
+      handleRemoteMouseEvent("mousedown", message.payload);
+  } else if (message.type === "mouse-up") {
+      handleRemoteMouseEvent("mouseup", message.payload);
+  } else if (message.type === "mouse-click") {
+      handleRemoteMouseEvent("click", message.payload);
+  } else if (message.type === "key-down") {
+      handleRemoteKeyEvent("keydown", message.payload);
+  } else if (message.type === "key-up") {
+      handleRemoteKeyEvent("keyup", message.payload);
   }
 }
 
@@ -166,22 +189,7 @@ function setupControlChannel(channel) {
     }
   });
 
-  channel.addEventListener("message", (event) => {
-    const message = JSON.parse(event.data);
-    if (message.type === "mouse-move") {
-      handleRemoteMouseMove(message.payload);
-    } else if (message.type === "mouse-down") {
-      handleRemoteMouseEvent("mousedown", message.payload);
-    } else if (message.type === "mouse-up") {
-      handleRemoteMouseEvent("mouseup", message.payload);
-    } else if (message.type === "mouse-click") {
-      handleRemoteMouseEvent("click", message.payload);
-    } else if (message.type === "key-down") {
-      handleRemoteKeyEvent("keydown", message.payload);
-    } else if (message.type === "key-up") {
-      handleRemoteKeyEvent("keyup", message.payload);
-    }
-  });
+  channel.addEventListener("message", (event) => handleInboundControlMessage(JSON.parse(event.data)));
 }
 
 function handleRemoteMouseMove(payload) {
@@ -441,6 +449,10 @@ function initSocket() {
 
     if (message.type === "signal") {
       handleSignal(message.payload);
+      return;
+    }
+    if (message.type === "control") {
+      handleInboundControlMessage(message.payload || {});
     }
   });
 

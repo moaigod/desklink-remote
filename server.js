@@ -265,6 +265,18 @@ wss.on('connection', (ws) => {
         if (peer && peer.readyState === 1) {
           peer.send(JSON.stringify({ type: 'signal', payload, fromRole: ws.role }));
         }
+        return;
+      }
+
+      // Fallback for networks where TURN relays media but SCTP data channels
+      // cannot be established. Only an already passcode-authorized viewer may
+      // send a small, known input message to its host.
+      const allowedControlTypes = new Set(['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'key-down', 'key-up', 'text', 'gamepad-state']);
+      if (type === 'control' && ws.role === 'viewer' && ws.roomId === roomId && payload && allowedControlTypes.has(payload.type)) {
+        const encoded = JSON.stringify(payload);
+        if (encoded.length <= 8192 && room.host && room.host.readyState === 1) {
+          room.host.send(JSON.stringify({ type: 'control', payload }));
+        }
       }
     } catch (error) {
       console.error('Failed to parse ws message', error);

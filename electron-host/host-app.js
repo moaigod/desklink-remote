@@ -116,6 +116,10 @@ function connectSocket() {
 
     if (message.type === 'signal') {
       handleSignal(message.payload);
+      return;
+    }
+    if (message.type === 'control') {
+      handleInboundControlMessage(message.payload || {});
     }
   });
 
@@ -177,14 +181,7 @@ function ensurePeerConnection() {
   return peerConnection;
 }
 
-function setupControlChannel(channel) {
-  controlChannel = channel;
-  channel.addEventListener('open', () => {
-    updateStatus('Control channel open.');
-  });
-
-  channel.addEventListener('message', (event) => {
-    const message = JSON.parse(event.data);
+function handleInboundControlMessage(message) {
     if (message.type === 'gamepad-state') {
       const controllers = Array.isArray(message.payload?.controllers) ? message.payload.controllers : [];
       if (controllerDebug) {
@@ -213,7 +210,14 @@ function setupControlChannel(channel) {
       }
       window.electronAPI.injectInput(message);
     }
+}
+
+function setupControlChannel(channel) {
+  controlChannel = channel;
+  channel.addEventListener('open', () => {
+    updateStatus('Control channel open.');
   });
+  channel.addEventListener('message', (event) => handleInboundControlMessage(JSON.parse(event.data)));
 }
 
 async function createOffer() {
