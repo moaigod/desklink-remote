@@ -62,12 +62,31 @@ function getWebSocketUrl(signalingUrl) {
 async function loadConnectionConfig() {
   const config = await window.electronAPI.getConnectionConfig();
   let iceServers = connectionConfig.iceServers;
+  let hasLocalOverride = false;
   if (config.iceServers) {
     try {
       const parsed = JSON.parse(config.iceServers);
-      if (Array.isArray(parsed) && parsed.length) iceServers = parsed;
+      if (Array.isArray(parsed) && parsed.length) {
+        iceServers = parsed;
+        hasLocalOverride = true;
+      }
     } catch (error) {
       console.warn('Invalid DESKLINK_ICE_SERVERS JSON; using STUN only.', error);
+    }
+  }
+
+  // The deployed signaling server is the single source of truth for TURN.
+  // This lets the browser viewer and portable host use matching credentials.
+  if (!hasLocalOverride) {
+    try {
+      const response = await fetch(new URL('/api/host-info', config.signalingUrl));
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const remoteConfig = await response.json();
+      if (Array.isArray(remoteConfig.iceServers) && remoteConfig.iceServers.length) {
+        iceServers = remoteConfig.iceServers;
+      }
+    } catch (error) {
+      console.warn('Could not load ICE servers from the signaling server; using STUN only.', error);
     }
   }
   connectionConfig = { signalingUrl: config.signalingUrl, iceServers };
