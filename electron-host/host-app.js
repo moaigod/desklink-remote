@@ -298,6 +298,7 @@ async function startHosting() {
     registerHost(registerExtras);
     setStatus('Hosting', 'connecting');
     updateStatus(`Screen share is live. Viewer needs room ${roomId} and passcode ${accessCode}.`);
+    window.electronAPI.minimizeHost();
   } catch (error) {
     console.error(error);
     updateStatus('Screen capture failed. Try selecting another source.');

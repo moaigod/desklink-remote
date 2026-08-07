@@ -105,6 +105,10 @@ ipcMain.on('set-input-bounds', (_event, bounds) => {
   if (helper.stdin?.writable) helper.stdin.write(`${JSON.stringify({ type: 'configure-display', payload: bounds })}\n`);
 });
 
+ipcMain.on('minimize-host', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
+});
+
 app.whenReady().then(async () => {
   await ensureServer();
   createWindow();

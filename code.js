@@ -221,26 +221,37 @@ function attachViewerControlHandlers() {
     sendControlMessage({ type: "mouse-click", payload: { x, y, button: event.button } });
   });
 
-  remoteVideo.addEventListener("click", () => {
-    if (role === "viewer") {
-      remoteVideo.focus({ preventScroll: true });
-    }
+  remoteVideo.addEventListener("click", (event) => {
+    // Keep Chrome's media controls from handling the click locally.
+    event.preventDefault();
+    event.stopPropagation();
   });
 
   fullscreenBtn.addEventListener("click", async () => {
-    if (remoteVideo.requestFullscreen) {
-      try {
-        await remoteVideo.requestFullscreen();
-      } catch (error) {
-        console.warn("Fullscreen request failed", error);
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
       }
+    } catch (error) {
+      console.warn("Fullscreen request failed", error);
     }
+  });
+
+  document.addEventListener("fullscreenchange", () => {
+    fullscreenBtn.textContent = document.fullscreenElement ? "Exit fullscreen" : "Fullscreen";
   });
 
   document.addEventListener("keydown", (event) => {
     if (!connected || role !== "viewer") {
       return;
     }
+    // Let the Chromebook/browser handle its own fullscreen controls.
+    if (event.key === "F11" || (event.key === "Escape" && document.fullscreenElement)) {
+      return;
+    }
+    event.preventDefault();
     sendControlMessage({ type: "key-down", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
   });
 
@@ -248,6 +259,10 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
+    if (event.key === "F11" || (event.key === "Escape" && document.fullscreenElement)) {
+      return;
+    }
+    event.preventDefault();
     sendControlMessage({ type: "key-up", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
   });
 }
