@@ -6,6 +6,7 @@ const saveSignalingUrlBtn = document.getElementById("saveSignalingUrlBtn");
 const fullscreenBtn = document.getElementById("fullscreenBtn");
 const devicesBtn = document.getElementById("devicesBtn");
 const devicePanel = document.getElementById("devicePanel");
+const releaseInputBtn = document.getElementById("releaseInputBtn");
 const roomCodeLabel = document.getElementById("roomCodeLabel");
 const heroStatus = document.getElementById("heroStatus");
 const heroMessage = document.getElementById("heroMessage");
@@ -381,10 +382,25 @@ function attachViewerControlHandlers() {
     devicesBtn.textContent = willShow ? "Hide devices" : "Devices";
   });
 
+  releaseInputBtn?.addEventListener("click", () => {
+    sendControlMessage({ type: "release-input" });
+    viewerMessage.textContent = "Released any stuck remote keys and mouse buttons.";
+  });
+
   document.addEventListener("fullscreenchange", () => {
     const isFullscreen = Boolean(document.fullscreenElement);
     document.body.classList.toggle("remote-fullscreen", isFullscreen);
     fullscreenBtn.textContent = isFullscreen ? "Exit fullscreen" : "Fullscreen";
+    remoteVideo.style.cursor = isFullscreen ? "none" : "";
+  });
+
+  const releaseRemoteInput = () => {
+    if (connected && role === "viewer") sendControlMessage({ type: "release-input" });
+  };
+  window.addEventListener("blur", releaseRemoteInput);
+  window.addEventListener("pagehide", releaseRemoteInput);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) releaseRemoteInput();
   });
 
   document.addEventListener("keydown", (event) => {
@@ -723,8 +739,7 @@ function getVideoPosition(event) {
   const contentTop = rect.top + (rect.height - contentHeight) / 2;
   const x = (event.clientX - contentLeft) / contentWidth;
   const y = (event.clientY - contentTop) / contentHeight;
-  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
-  return { x, y };
+  return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
 }
 
 async function addPendingIceCandidates() {

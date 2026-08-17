@@ -448,6 +448,10 @@ body.remote-fullscreen #remoteVideo {
   cursor: none;
 }
 
+:fullscreen #remoteVideo {
+  cursor: none !important;
+}
+
 @media (max-width: 920px) {
   .hero,
   .panel-grid {

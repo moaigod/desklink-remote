@@ -240,7 +240,7 @@ function handleInboundControlMessage(message) {
       }
       return;
     }
-    if (['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'mouse-scroll', 'key-down', 'key-up', 'text'].includes(message.type)) {
+    if (['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'mouse-scroll', 'key-down', 'key-up', 'text', 'release-input'].includes(message.type)) {
       if (message.type.startsWith('mouse-') && message.payload && inputDebug) {
         const x = Number(message.payload.x);
         const y = Number(message.payload.y);
