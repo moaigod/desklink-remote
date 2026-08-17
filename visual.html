@@ -57,7 +57,16 @@
               <input id="accessCodeInput" type="password" placeholder="Computer password" autocomplete="current-password" />
               <button id="joinBtn" class="primary-btn">Join</button>
               <button id="fullscreenBtn" class="secondary-btn" type="button">Fullscreen</button>
+              <button id="devicesBtn" class="secondary-btn" type="button" aria-expanded="false">Devices</button>
             </div>
+
+            <section id="devicePanel" class="device-panel" hidden>
+              <div class="device-panel-header">
+                <strong>Connected devices</strong>
+                <span>Viewer controls</span>
+              </div>
+              <p id="controllerMessage" class="status-message controller-message">Controller: plug one into this device, then join a desktop.</p>
+            </section>
 
             <section id="recentSessions" class="recent-sessions" hidden>
               <div class="recent-header">
@@ -70,7 +79,6 @@
 
             <video id="remoteVideo" autoplay playsinline tabindex="0"></video>
             <p id="viewerMessage" class="status-message">Waiting for a portal address…</p>
-            <p id="controllerMessage" class="status-message controller-message">Controller: plug one into this device, then join a desktop.</p>
           </article>
 
           <article id="hostPanel" class="panel-card host-panel">

@@ -4,6 +4,8 @@ const accessCodeInput = document.getElementById("accessCodeInput");
 const signalingUrlInput = document.getElementById("signalingUrlInput");
 const saveSignalingUrlBtn = document.getElementById("saveSignalingUrlBtn");
 const fullscreenBtn = document.getElementById("fullscreenBtn");
+const devicesBtn = document.getElementById("devicesBtn");
+const devicePanel = document.getElementById("devicePanel");
 const roomCodeLabel = document.getElementById("roomCodeLabel");
 const heroStatus = document.getElementById("heroStatus");
 const heroMessage = document.getElementById("heroMessage");
@@ -369,6 +371,14 @@ function attachViewerControlHandlers() {
     } catch (error) {
       console.warn("Fullscreen request failed", error);
     }
+  });
+
+  devicesBtn?.addEventListener("click", () => {
+    if (!devicePanel) return;
+    const willShow = devicePanel.hidden;
+    devicePanel.hidden = !willShow;
+    devicesBtn.setAttribute("aria-expanded", String(willShow));
+    devicesBtn.textContent = willShow ? "Hide devices" : "Devices";
   });
 
   document.addEventListener("fullscreenchange", () => {

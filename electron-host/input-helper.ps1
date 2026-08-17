@@ -3,7 +3,7 @@ using System;
 using System.Runtime.InteropServices;
 public static class DeskLinkInput {
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
-  [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, int data, UIntPtr extra);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
   [DllImport("user32.dll")] public static extern short VkKeyScan(char ch);
   [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
@@ -90,7 +90,7 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
         if ($wheelDelta -gt 960) { $wheelDelta = 960 }
         if ($wheelDelta -lt -960) { $wheelDelta = -960 }
         if ($wheelDelta -ne 0) {
-          [DeskLinkInput]::mouse_event(0x0800, 0, 0, [uint32]$wheelDelta, [UIntPtr]::Zero)
+            [DeskLinkInput]::mouse_event(0x0800, 0, 0, $wheelDelta, [UIntPtr]::Zero)
         }
       }
     } elseif ($message.type -eq 'text') {

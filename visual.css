@@ -325,6 +325,26 @@ body {
   color: #b7ffd9;
 }
 
+.device-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed rgba(124, 245, 198, 0.42);
+  border-radius: 14px;
+  background: rgba(7, 4, 31, 0.24);
+}
+
+.device-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #fff8ec;
+}
+
+.device-panel-header span {
+  color: #d6c9ef;
+  font-size: 0.84rem;
+}
+
 .recent-sessions {
   margin-top: 14px;
   padding: 12px;
@@ -410,6 +430,7 @@ body.remote-fullscreen .topbar,
 body.remote-fullscreen .hero,
 body.remote-fullscreen .panel-heading,
 body.remote-fullscreen .button-row,
+body.remote-fullscreen .device-panel,
 body.remote-fullscreen #viewerMessage,
 body.remote-fullscreen .info-card,
 body.remote-fullscreen .host-panel {
@@ -424,6 +445,7 @@ body.remote-fullscreen #remoteVideo {
   margin: 0;
   border: 0;
   border-radius: 0;
+  cursor: none;
 }
 
 @media (max-width: 920px) {
