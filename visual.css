@@ -452,6 +452,112 @@ body.remote-fullscreen #remoteVideo {
   cursor: none !important;
 }
 
+.remote-controls {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  color: #fff8ec;
+}
+
+.remote-controls-toggle,
+.remote-controls-close,
+.remote-controls-action {
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  color: #fff8ec;
+  cursor: pointer;
+}
+
+.remote-controls-toggle {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  font-size: 1.35rem;
+  background: rgba(31, 13, 67, 0.62);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.remote-controls-panel {
+  width: min(280px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  background: rgba(28, 12, 59, 0.72);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(12px);
+}
+
+.remote-controls-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 2px 10px;
+  cursor: default;
+  user-select: none;
+}
+
+.remote-controls.dragging .remote-controls-header,
+.remote-controls:not(.locked) .remote-controls-header {
+  cursor: grab;
+}
+
+.remote-controls.dragging .remote-controls-header {
+  cursor: grabbing;
+}
+
+.remote-controls-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.remote-controls-action {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: rgba(124, 245, 198, 0.17);
+  text-align: left;
+}
+
+.remote-controls-note,
+.remote-controls-hint {
+  margin: 10px 1px 0;
+  color: #d6c9ef;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.remote-controls-lock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
+.remote-controls-lock input {
+  width: auto;
+  accent-color: #7cf5c6;
+}
+
+body.remote-fullscreen .remote-controls {
+  display: flex !important;
+}
+
+body.remote-fullscreen .remote-controls[hidden] {
+  display: none !important;
+}
+
 @media (max-width: 920px) {
   .hero,
   .panel-grid {

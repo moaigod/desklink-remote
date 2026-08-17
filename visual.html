@@ -57,17 +57,7 @@
               <input id="accessCodeInput" type="password" placeholder="Computer password" autocomplete="current-password" />
               <button id="joinBtn" class="primary-btn">Join</button>
               <button id="fullscreenBtn" class="secondary-btn" type="button">Fullscreen</button>
-              <button id="devicesBtn" class="secondary-btn" type="button" aria-expanded="false">Devices</button>
             </div>
-
-            <section id="devicePanel" class="device-panel" hidden>
-              <div class="device-panel-header">
-                <strong>Connected devices</strong>
-                <span>Viewer controls</span>
-              </div>
-              <p id="controllerMessage" class="status-message controller-message">Controller: plug one into this device, then join a desktop.</p>
-              <button id="releaseInputBtn" class="text-btn" type="button">Fix stuck keys</button>
-            </section>
 
             <section id="recentSessions" class="recent-sessions" hidden>
               <div class="recent-header">
@@ -113,6 +103,24 @@
         </section>
       </main>
     </div>
+
+    <aside id="remoteControls" class="remote-controls" hidden aria-label="DeskLink remote controls">
+      <button id="remoteControlsToggle" class="remote-controls-toggle" type="button" aria-expanded="false" aria-label="Open remote controls">⚙</button>
+      <section id="remoteControlsPanel" class="remote-controls-panel" hidden>
+        <div id="remoteControlsHandle" class="remote-controls-header">
+          <strong>DeskLink controls</strong>
+          <button id="remoteControlsClose" class="remote-controls-close" type="button" aria-label="Close remote controls">×</button>
+        </div>
+        <button id="switchHostAppBtn" class="remote-controls-action" type="button">⇄ Switch host app</button>
+        <button id="releaseInputBtn" class="remote-controls-action" type="button">⌁ Fix stuck keys</button>
+        <p id="controllerMessage" class="remote-controls-note">Controller: plug one into this device, then join a desktop.</p>
+        <label class="remote-controls-lock">
+          <input id="remoteControlsLocked" type="checkbox" checked />
+          Lock controls in place
+        </label>
+        <p class="remote-controls-hint">Unlock, then drag this title bar to move it.</p>
+      </section>
+    </aside>
 
     <script src="code.js"></script>
   </body>

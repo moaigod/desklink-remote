@@ -55,6 +55,15 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       [DeskLinkInput]::mouse_event(0x0010, 0, 0, 0, [UIntPtr]::Zero)
       continue
     }
+    if ($message.type -eq 'host-alt-tab') {
+      # Send a complete shortcut in one host-side operation. This avoids the
+      # viewer OS stealing Alt+Tab or leaving Alt held after it changes focus.
+      [DeskLinkInput]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero)
+      [DeskLinkInput]::keybd_event(0x09, 0, 0, [UIntPtr]::Zero)
+      [DeskLinkInput]::keybd_event(0x09, 0, 0x0002, [UIntPtr]::Zero)
+      [DeskLinkInput]::keybd_event(0x12, 0, 0x0002, [UIntPtr]::Zero)
+      continue
+    }
     if ($message.type -like 'mouse-*') {
       # Keep the fractional browser coordinates. PowerShell can select the
       # integer Math.Min/Max overload here, which rounds input to 0 or 1.

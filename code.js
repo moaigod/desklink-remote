@@ -4,9 +4,14 @@ const accessCodeInput = document.getElementById("accessCodeInput");
 const signalingUrlInput = document.getElementById("signalingUrlInput");
 const saveSignalingUrlBtn = document.getElementById("saveSignalingUrlBtn");
 const fullscreenBtn = document.getElementById("fullscreenBtn");
-const devicesBtn = document.getElementById("devicesBtn");
-const devicePanel = document.getElementById("devicePanel");
 const releaseInputBtn = document.getElementById("releaseInputBtn");
+const switchHostAppBtn = document.getElementById("switchHostAppBtn");
+const remoteControls = document.getElementById("remoteControls");
+const remoteControlsToggle = document.getElementById("remoteControlsToggle");
+const remoteControlsPanel = document.getElementById("remoteControlsPanel");
+const remoteControlsClose = document.getElementById("remoteControlsClose");
+const remoteControlsHandle = document.getElementById("remoteControlsHandle");
+const remoteControlsLocked = document.getElementById("remoteControlsLocked");
 const roomCodeLabel = document.getElementById("roomCodeLabel");
 const heroStatus = document.getElementById("heroStatus");
 const heroMessage = document.getElementById("heroMessage");
@@ -48,6 +53,51 @@ let signalingBaseUrl = null;
 let controllerPollTimer = null;
 let lastControllerSnapshot = "";
 const recentSessionsKey = "desklink-recent-sessions";
+const remoteControlsPreferencesKey = "desklink-remote-controls";
+let remoteControlsHandlersAttached = false;
+let remoteControlsDrag = null;
+
+function clampRemoteControlsPosition(left, top) {
+  if (!remoteControls) return { left, top };
+  const rect = remoteControls.getBoundingClientRect();
+  return {
+    left: Math.max(8, Math.min(window.innerWidth - rect.width - 8, left)),
+    top: Math.max(8, Math.min(window.innerHeight - rect.height - 8, top)),
+  };
+}
+
+function saveRemoteControlsPreferences() {
+  if (!remoteControls) return;
+  const rect = remoteControls.getBoundingClientRect();
+  localStorage.setItem(remoteControlsPreferencesKey, JSON.stringify({
+    left: rect.left / Math.max(1, window.innerWidth),
+    top: rect.top / Math.max(1, window.innerHeight),
+    locked: Boolean(remoteControlsLocked?.checked),
+  }));
+}
+
+function applyRemoteControlsPreferences() {
+  if (!remoteControls) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem(remoteControlsPreferencesKey) || "{}");
+    if (typeof saved.locked === "boolean" && remoteControlsLocked) remoteControlsLocked.checked = saved.locked;
+    if (Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+      const position = clampRemoteControlsPosition(saved.left * window.innerWidth, saved.top * window.innerHeight);
+      remoteControls.style.left = `${position.left}px`;
+      remoteControls.style.top = `${position.top}px`;
+      remoteControls.style.right = "auto";
+    }
+  } catch {
+    // The default top-right position is fine for a new browser.
+  }
+  remoteControls.classList.toggle("locked", Boolean(remoteControlsLocked?.checked));
+}
+
+function showRemoteControls() {
+  if (!remoteControls || role !== "viewer") return;
+  remoteControls.hidden = false;
+  applyRemoteControlsPreferences();
+}
 
 function getRecentSessions() {
   try {
@@ -374,17 +424,64 @@ function attachViewerControlHandlers() {
     }
   });
 
-  devicesBtn?.addEventListener("click", () => {
-    if (!devicePanel) return;
-    const willShow = devicePanel.hidden;
-    devicePanel.hidden = !willShow;
-    devicesBtn.setAttribute("aria-expanded", String(willShow));
-    devicesBtn.textContent = willShow ? "Hide devices" : "Devices";
-  });
+  if (!remoteControlsHandlersAttached) {
+    remoteControlsHandlersAttached = true;
+    remoteControlsToggle?.addEventListener("click", () => {
+      if (!remoteControlsPanel) return;
+      const willShow = remoteControlsPanel.hidden;
+      remoteControlsPanel.hidden = !willShow;
+      remoteControlsToggle.setAttribute("aria-expanded", String(willShow));
+      remoteControlsToggle.setAttribute("aria-label", willShow ? "Close remote controls" : "Open remote controls");
+    });
+
+    remoteControlsClose?.addEventListener("click", () => {
+      if (!remoteControlsPanel) return;
+      remoteControlsPanel.hidden = true;
+      remoteControlsToggle?.setAttribute("aria-expanded", "false");
+      remoteControlsToggle?.setAttribute("aria-label", "Open remote controls");
+    });
+
+    remoteControlsLocked?.addEventListener("change", () => {
+      remoteControls?.classList.toggle("locked", remoteControlsLocked.checked);
+      saveRemoteControlsPreferences();
+    });
+
+    remoteControlsHandle?.addEventListener("pointerdown", (event) => {
+      if (!remoteControls || remoteControlsLocked?.checked || event.target.closest("button")) return;
+      const rect = remoteControls.getBoundingClientRect();
+      remoteControlsDrag = { pointerId: event.pointerId, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top };
+      remoteControls.classList.add("dragging");
+      remoteControlsHandle.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+
+    remoteControlsHandle?.addEventListener("pointermove", (event) => {
+      if (!remoteControlsDrag || event.pointerId !== remoteControlsDrag.pointerId || !remoteControls) return;
+      const position = clampRemoteControlsPosition(event.clientX - remoteControlsDrag.offsetX, event.clientY - remoteControlsDrag.offsetY);
+      remoteControls.style.left = `${position.left}px`;
+      remoteControls.style.top = `${position.top}px`;
+      remoteControls.style.right = "auto";
+    });
+
+    const finishRemoteControlsDrag = (event) => {
+      if (!remoteControlsDrag || event.pointerId !== remoteControlsDrag.pointerId) return;
+      remoteControlsHandle?.releasePointerCapture?.(event.pointerId);
+      remoteControls?.classList.remove("dragging");
+      remoteControlsDrag = null;
+      saveRemoteControlsPreferences();
+    };
+    remoteControlsHandle?.addEventListener("pointerup", finishRemoteControlsDrag);
+    remoteControlsHandle?.addEventListener("pointercancel", finishRemoteControlsDrag);
+  }
 
   releaseInputBtn?.addEventListener("click", () => {
     sendControlMessage({ type: "release-input" });
     viewerMessage.textContent = "Released any stuck remote keys and mouse buttons.";
+  });
+
+  switchHostAppBtn?.addEventListener("click", () => {
+    sendControlMessage({ type: "host-alt-tab" });
+    viewerMessage.textContent = "Switched to the next app on the host.";
   });
 
   document.addEventListener("fullscreenchange", () => {
@@ -411,6 +508,17 @@ function attachViewerControlHandlers() {
     if (event.key === "F11" || (event.key === "Escape" && document.fullscreenElement)) {
       return;
     }
+    // Alt+Tab and the Windows/Command key are owned by the viewer computer.
+    // Browsers can lose focus after the key-down and never deliver key-up,
+    // which leaves Alt stuck on the host and turns later Tab presses into
+    // Alt+Tab. Keep those local rather than forwarding an incomplete shortcut.
+    if (event.key === "Alt" || event.key === "Meta" || event.key === "AltGraph") {
+      return;
+    }
+    if (event.key === "Tab" && event.altKey) {
+      sendControlMessage({ type: "release-input" });
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
@@ -425,6 +533,9 @@ function attachViewerControlHandlers() {
       return;
     }
     if (event.key === "F11" || (event.key === "Escape" && document.fullscreenElement)) {
+      return;
+    }
+    if (event.key === "Alt" || event.key === "Meta" || event.key === "AltGraph") {
       return;
     }
     event.preventDefault();
@@ -628,6 +739,7 @@ function ensurePeerConnection() {
       heroStatus.textContent = "Connected";
       heroStatus.className = "status-pill connecting";
       viewerMessage.textContent = "The remote screen is live.";
+      showRemoteControls();
       if (hostMessage) {
         hostMessage.textContent = "Connected to the viewer.";
       }
@@ -651,6 +763,7 @@ function ensurePeerConnection() {
       }
       if (role === "viewer") {
         remoteVideo.focus({ preventScroll: true });
+        showRemoteControls();
       }
     } else if (peerConnection.connectionState === "failed") {
       reportStatus("The peer connection failed. Refresh and try again.");
