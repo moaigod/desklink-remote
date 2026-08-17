@@ -1,11 +1,12 @@
 const { build } = require('electron-builder');
+const developerBuild = process.env.DESKLINK_DEVELOPER_BUILD === '1';
 
 build({
   config: {
     appId: 'com.desklink.hostapp',
-    productName: 'DeskLink Host App',
+    productName: developerBuild ? 'DeskLink Developer' : 'DeskLink Host App',
     directories: {
-      output: 'dist'
+      output: developerBuild ? 'dist-developer' : 'dist'
     },
     // Keep the portable beginner build simple and avoid archive-layout issues.
     // This is a convenience package, not a security boundary.

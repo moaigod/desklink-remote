@@ -8,7 +8,13 @@ let inputHelper;
 let tray;
 let isQuitting = false;
 const launchInBackground = process.argv.includes('--background');
-const developerMode = process.argv.includes('--debug');
+const developerMode = process.argv.includes('--debug') || path.basename(process.execPath).toLowerCase().includes('desklink developer');
+
+if (developerMode) {
+  // Keep this build independent from the normal host's single-instance lock
+  // and startup preference.
+  app.setPath('userData', path.join(app.getPath('appData'), 'DeskLink Developer'));
+}
 
 function assetPath(fileName) {
   return app.isPackaged
@@ -212,7 +218,7 @@ ipcMain.on('minimize-host', () => {
 });
 
 app.whenReady().then(async () => {
-  if (process.platform === 'win32' && app.isPackaged) {
+  if (process.platform === 'win32' && app.isPackaged && !developerMode) {
     app.setLoginItemSettings({ openAtLogin: true, args: ['--background'] });
   }
   await ensureServer();

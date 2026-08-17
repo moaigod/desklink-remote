@@ -662,7 +662,7 @@ function attachViewerControlHandlers() {
 
   window.addEventListener("gamepadconnected", (event) => {
     if (controllerMessage) controllerMessage.textContent = `Controller connected: ${event.gamepad.id}.`;
-    pollControllers();
+    startControllerCapture();
   });
 
   window.addEventListener("gamepaddisconnected", () => {
@@ -856,6 +856,7 @@ function ensurePeerConnection() {
       viewerMessage.textContent = "The remote screen is live.";
       showRemoteControls();
       startConnectionStats();
+      startControllerCapture();
       if (hostMessage) {
         hostMessage.textContent = "Connected to the viewer.";
       }
@@ -881,6 +882,7 @@ function ensurePeerConnection() {
         remoteVideo.focus({ preventScroll: true });
         showRemoteControls();
         startConnectionStats();
+        startControllerCapture();
       }
     } else if (peerConnection.connectionState === "failed") {
       reportStatus("The peer connection failed. Refresh and try again.");
