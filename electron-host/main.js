@@ -8,6 +8,7 @@ let inputHelper;
 let tray;
 let isQuitting = false;
 const launchInBackground = process.argv.includes('--background');
+const developerMode = process.argv.includes('--debug');
 
 function assetPath(fileName) {
   return app.isPackaged
@@ -155,7 +156,9 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'host-app.html'));
+  mainWindow.loadFile(path.join(__dirname, 'host-app.html'), {
+    query: developerMode ? { debug: '1' } : {},
+  });
   mainWindow.on('close', (event) => {
     if (!isQuitting) {
       event.preventDefault();

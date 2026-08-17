@@ -40,9 +40,14 @@
 
         <p id="statusMessage" class="message">Choose a screen source and begin hosting.</p>
         <p class="message quality-hint">Smooth is best for TURN or weak Wi‑Fi. Choose your mode before starting a session.</p>
-        <p id="inputDebug" class="message">Pointer mapping: waiting for viewer input.</p>
-        <p id="keyboardDebug" class="message">Keyboard input: waiting for viewer input.</p>
-        <p id="controllerDebug" class="message">Controller: waiting for a browser controller.</p>
+        <section id="developerPanel" class="developer-panel" hidden>
+          <div class="developer-heading"><strong>Developer telemetry</strong><span>local build only</span></div>
+          <p id="inputDebug" class="message">Pointer: waiting for viewer input.</p>
+          <p id="keyboardDebug" class="message">Keyboard: waiting for viewer input.</p>
+          <p id="controllerDebug" class="message">Controller: waiting for a browser controller.</p>
+          <p id="streamDebug" class="message">Stream: waiting to start.</p>
+          <p id="eventDebug" class="message">Control messages received: 0</p>
+        </section>
       </section>
 
       <video id="previewVideo" autoplay playsinline muted></video>

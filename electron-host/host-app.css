@@ -119,6 +119,26 @@ button.secondary {
   opacity: 0.82;
 }
 
+.developer-panel {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px dashed rgba(124, 245, 198, 0.48);
+  border-radius: 14px;
+  background: rgba(5, 30, 45, 0.45);
+}
+
+.developer-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #b7ffd9;
+}
+
+.developer-heading span {
+  color: #d6c9ef;
+  font-size: 0.82rem;
+}
+
 video {
   width: 100%;
   margin-top: 18px;

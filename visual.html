@@ -114,6 +114,14 @@
         <button id="disconnectBtn" class="remote-controls-action danger" type="button">Disconnect</button>
         <button id="viewOnlyBtn" class="remote-controls-action" type="button" aria-pressed="false">View-only: off</button>
         <button id="localCursorBtn" class="remote-controls-action" type="button" aria-pressed="false">Show local cursor: off</button>
+        <label class="remote-controls-quality">
+          Stream quality
+          <select id="clientQualitySelect">
+            <option value="smooth">Smooth · 30 FPS</option>
+            <option value="balanced" selected>Balanced · 30 FPS</option>
+            <option value="crisp">Crisp · up to 60 FPS</option>
+          </select>
+        </label>
         <button id="switchHostAppBtn" class="remote-controls-action" type="button">⇄ Alt+Tab on host</button>
         <button id="releaseInputBtn" class="remote-controls-action" type="button">⌁ Fix stuck keys</button>
         <button id="hideControlsBtn" class="remote-controls-action" type="button">Hide until fullscreen</button>
@@ -123,7 +131,7 @@
           <input id="remoteControlsLocked" type="checkbox" checked />
           Lock controls in place
         </label>
-        <p class="remote-controls-hint">Unlock, then drag this title bar to move it.</p>
+        <p class="remote-controls-hint">Unlock, then drag the gear to move it.</p>
       </section>
     </aside>
 

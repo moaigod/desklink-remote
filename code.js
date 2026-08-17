@@ -16,6 +16,7 @@ const viewOnlyBtn = document.getElementById("viewOnlyBtn");
 const localCursorBtn = document.getElementById("localCursorBtn");
 const hideControlsBtn = document.getElementById("hideControlsBtn");
 const connectionStats = document.getElementById("connectionStats");
+const clientQualitySelect = document.getElementById("clientQualitySelect");
 const roomCodeLabel = document.getElementById("roomCodeLabel");
 const heroStatus = document.getElementById("heroStatus");
 const heroMessage = document.getElementById("heroMessage");
@@ -108,6 +109,12 @@ function showRemoteControls() {
   if (!remoteControls || role !== "viewer") return;
   remoteControls.hidden = false;
   applyRemoteControlsPreferences();
+}
+
+function sendViewerQualityPreference() {
+  const profile = clientQualitySelect?.value;
+  if (!profile) return;
+  sendControlMessage({ type: "set-stream-quality", payload: { profile } });
 }
 
 function stopConnectionStats() {
@@ -357,6 +364,7 @@ function setupControlChannel(channel) {
     if (role === "viewer") {
       viewerMessage.textContent = "Remote control is ready. Click and type in the shared page.";
       startControllerCapture();
+      sendViewerQualityPreference();
     }
   });
 
@@ -573,6 +581,12 @@ function attachViewerControlHandlers() {
   hideControlsBtn?.addEventListener("click", () => {
     controlsHiddenUntilFullscreen = true;
     remoteControls.hidden = true;
+  });
+
+  clientQualitySelect?.addEventListener("change", () => {
+    sendViewerQualityPreference();
+    const label = clientQualitySelect.options[clientQualitySelect.selectedIndex]?.text || "selected quality";
+    viewerMessage.textContent = `Requested ${label} from the host.`;
   });
 
   switchHostAppBtn?.addEventListener("click", () => {

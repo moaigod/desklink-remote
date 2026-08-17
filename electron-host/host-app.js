@@ -10,6 +10,9 @@ const statusMessage = document.getElementById('statusMessage');
 const inputDebug = document.getElementById('inputDebug');
 const keyboardDebug = document.getElementById('keyboardDebug');
 const controllerDebug = document.getElementById('controllerDebug');
+const streamDebug = document.getElementById('streamDebug');
+const eventDebug = document.getElementById('eventDebug');
+const developerPanel = document.getElementById('developerPanel');
 const previewVideo = document.getElementById('previewVideo');
 
 let roomId = null;
@@ -23,6 +26,12 @@ let pendingRegister = null;
 let pendingIceCandidates = [];
 let captureSources = [];
 let inputBounds = null;
+let controlMessageCount = 0;
+const developerMode = new URLSearchParams(window.location.search).get('debug') === '1';
+
+if (developerMode && developerPanel) {
+  developerPanel.hidden = false;
+}
 let connectionConfig = {
   signalingUrl: 'http://localhost:3000',
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -32,6 +41,11 @@ const qualityProfiles = {
   smooth: { label: 'Smooth', width: 960, height: 540, frameRate: 30, maxBitrate: 1_500_000, contentHint: 'motion' },
   balanced: { label: 'Balanced', width: 1280, height: 720, frameRate: 30, maxBitrate: 3_500_000, contentHint: 'detail' },
   crisp: { label: 'Crisp', width: 1920, height: 1080, frameRate: 60, maxBitrate: 8_000_000, contentHint: 'detail' },
+};
+const viewerQualityProfiles = {
+  smooth: { label: 'Smooth', frameRate: 30, maxBitrate: 1_500_000 },
+  balanced: { label: 'Balanced', frameRate: 30, maxBitrate: 3_500_000 },
+  crisp: { label: 'Crisp', frameRate: 60, maxBitrate: 8_000_000 },
 };
 const hostPreferencesKey = 'desklink-host-preferences';
 
@@ -70,6 +84,15 @@ async function tuneVideoSender(sender, profile) {
     // Capture dimensions still apply if a platform does not expose sender tuning.
     console.warn('Could not apply bitrate tuning.', error);
   }
+}
+
+async function applyViewerQuality(profileName) {
+  const profile = viewerQualityProfiles[profileName];
+  if (!profile || !peerConnection) return;
+  const videoSenders = peerConnection.getSenders().filter((sender) => sender.track?.kind === 'video');
+  await Promise.all(videoSenders.map((sender) => tuneVideoSender(sender, profile)));
+  updateStatus(`Viewer requested ${profile.label}: up to ${profile.frameRate} FPS.`);
+  if (streamDebug) streamDebug.textContent = `Stream: viewer requested ${profile.label}, cap ${profile.frameRate} FPS, ${Math.round(profile.maxBitrate / 1_000_000 * 10) / 10} Mbps.`;
 }
 
 function normalizeId(value) {
@@ -228,6 +251,12 @@ function ensurePeerConnection() {
 }
 
 function handleInboundControlMessage(message) {
+    controlMessageCount += 1;
+    if (eventDebug) eventDebug.textContent = `Control messages received: ${controlMessageCount} · latest: ${message.type}`;
+    if (message.type === 'set-stream-quality') {
+      applyViewerQuality(message.payload?.profile).catch((error) => console.warn('Could not apply viewer stream quality.', error));
+      return;
+    }
     if (message.type === 'gamepad-state') {
       const controllers = Array.isArray(message.payload?.controllers) ? message.payload.controllers : [];
       if (controllerDebug) {
@@ -235,7 +264,10 @@ function handleInboundControlMessage(message) {
           controllerDebug.textContent = 'Controller: viewer has no controller connected.';
         } else {
           const pressed = controllers.reduce((total, controller) => total + (controller.buttons || []).filter((button) => button.pressed).length, 0);
-          controllerDebug.textContent = `Controller signal received: ${controllers.length} controller${controllers.length === 1 ? '' : 's'}, ${pressed} button${pressed === 1 ? '' : 's'} pressed. Virtual controller driver not installed.`;
+          const first = controllers[0];
+          const pressedButtons = (first?.buttons || []).map((button, index) => button.pressed ? index : null).filter((index) => index !== null).join(', ') || 'none';
+          const axes = (first?.axes || []).slice(0, 4).map((axis) => Number(axis).toFixed(2)).join(', ') || 'none';
+          controllerDebug.textContent = `Controller: ${controllers.length} connected · pressed [${pressedButtons}] · axes [${axes}] · ${pressed} total button${pressed === 1 ? '' : 's'} held.`;
         }
       }
       return;
@@ -247,12 +279,14 @@ function handleInboundControlMessage(message) {
         if (Number.isFinite(x) && Number.isFinite(y)) {
           const targetX = inputBounds ? Math.round(x * (inputBounds.width - 1)) + inputBounds.x : 'unknown';
           const targetY = inputBounds ? Math.round(y * (inputBounds.height - 1)) + inputBounds.y : 'unknown';
+          inputDebug.textContent = `Pointer ${message.type}: normalized ${x.toFixed(3)}, ${y.toFixed(3)} → host ${targetX}, ${targetY}${message.payload.button === undefined ? '' : ` · button ${message.payload.button}`}`;
           inputDebug.textContent = `Pointer mapping: ${x.toFixed(3)}, ${y.toFixed(3)} → ${targetX}, ${targetY}`;
         }
       }
       if ((message.type === 'text' || message.type.startsWith('key-')) && keyboardDebug) {
         const received = message.type === 'text' ? JSON.stringify(message.payload?.text || '') : message.payload?.key || message.type;
-        keyboardDebug.textContent = `Keyboard input received: ${received}`;
+        const modifiers = ['ctrlKey', 'altKey', 'shiftKey', 'metaKey'].filter((name) => message.payload?.[name]).map((name) => name.replace('Key', '')).join('+') || 'none';
+        keyboardDebug.textContent = `Keyboard ${message.type}: ${received} · code ${message.payload?.code || 'unicode'} · modifiers ${modifiers}`;
       }
       window.electronAPI.injectInput(message);
     }
@@ -371,7 +405,10 @@ async function startHosting() {
           maxWidth: quality.width,
           minHeight: quality.height,
           maxHeight: quality.height,
-          maxFrameRate: quality.frameRate,
+          // Capture enough frames for a viewer to choose the 60 FPS cap later.
+          // The encoder remains limited to the host's selected profile until a
+          // passcode-authorized viewer asks for a different profile.
+          maxFrameRate: 60,
         },
       },
       audio: false,
@@ -392,6 +429,7 @@ async function startHosting() {
     registerHost(registerExtras);
     setStatus('Hosting', 'connecting');
     updateStatus(`${quality.label} stream is live. New viewers need computer ID ${roomId} and its password.`);
+    if (streamDebug) streamDebug.textContent = `Stream: ${quality.label} · ${quality.width}×${quality.height} · host default ${quality.frameRate} FPS · source ${selectedSource?.name || selectedSourceId}`;
     window.electronAPI.minimizeHost();
   } catch (error) {
     console.error(error);
