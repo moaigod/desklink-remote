@@ -457,10 +457,8 @@ body.remote-fullscreen #remoteVideo {
   top: 18px;
   right: 18px;
   z-index: 50;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  width: 46px;
+  height: 46px;
   color: #fff8ec;
 }
 
@@ -482,7 +480,18 @@ body.remote-fullscreen #remoteVideo {
   backdrop-filter: blur(10px);
 }
 
+.remote-controls:not(.locked) .remote-controls-toggle {
+  cursor: grab;
+}
+
+.remote-controls.dragging .remote-controls-toggle {
+  cursor: grabbing;
+}
+
 .remote-controls-panel {
+  position: absolute;
+  top: 54px;
+  right: 0;
   width: min(280px, calc(100vw - 32px));
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -500,15 +509,6 @@ body.remote-fullscreen #remoteVideo {
   padding: 3px 2px 10px;
   cursor: default;
   user-select: none;
-}
-
-.remote-controls.dragging .remote-controls-header,
-.remote-controls:not(.locked) .remote-controls-header {
-  cursor: grab;
-}
-
-.remote-controls.dragging .remote-controls-header {
-  cursor: grabbing;
 }
 
 .remote-controls-close {

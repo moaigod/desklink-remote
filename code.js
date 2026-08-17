@@ -10,7 +10,6 @@ const remoteControls = document.getElementById("remoteControls");
 const remoteControlsToggle = document.getElementById("remoteControlsToggle");
 const remoteControlsPanel = document.getElementById("remoteControlsPanel");
 const remoteControlsClose = document.getElementById("remoteControlsClose");
-const remoteControlsHandle = document.getElementById("remoteControlsHandle");
 const remoteControlsLocked = document.getElementById("remoteControlsLocked");
 const roomCodeLabel = document.getElementById("roomCodeLabel");
 const heroStatus = document.getElementById("heroStatus");
@@ -56,6 +55,7 @@ const recentSessionsKey = "desklink-recent-sessions";
 const remoteControlsPreferencesKey = "desklink-remote-controls";
 let remoteControlsHandlersAttached = false;
 let remoteControlsDrag = null;
+let ignoreRemoteControlsToggleClick = false;
 
 function clampRemoteControlsPosition(left, top) {
   if (!remoteControls) return { left, top };
@@ -427,6 +427,10 @@ function attachViewerControlHandlers() {
   if (!remoteControlsHandlersAttached) {
     remoteControlsHandlersAttached = true;
     remoteControlsToggle?.addEventListener("click", () => {
+      if (ignoreRemoteControlsToggleClick) {
+        ignoreRemoteControlsToggleClick = false;
+        return;
+      }
       if (!remoteControlsPanel) return;
       const willShow = remoteControlsPanel.hidden;
       remoteControlsPanel.hidden = !willShow;
@@ -446,18 +450,19 @@ function attachViewerControlHandlers() {
       saveRemoteControlsPreferences();
     });
 
-    remoteControlsHandle?.addEventListener("pointerdown", (event) => {
-      if (!remoteControls || remoteControlsLocked?.checked || event.target.closest("button")) return;
+    remoteControlsToggle?.addEventListener("pointerdown", (event) => {
+      if (!remoteControls || remoteControlsLocked?.checked) return;
       const rect = remoteControls.getBoundingClientRect();
-      remoteControlsDrag = { pointerId: event.pointerId, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top };
+      remoteControlsDrag = { pointerId: event.pointerId, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top, moved: false };
       remoteControls.classList.add("dragging");
-      remoteControlsHandle.setPointerCapture?.(event.pointerId);
+      remoteControlsToggle.setPointerCapture?.(event.pointerId);
       event.preventDefault();
     });
 
-    remoteControlsHandle?.addEventListener("pointermove", (event) => {
+    remoteControlsToggle?.addEventListener("pointermove", (event) => {
       if (!remoteControlsDrag || event.pointerId !== remoteControlsDrag.pointerId || !remoteControls) return;
       const position = clampRemoteControlsPosition(event.clientX - remoteControlsDrag.offsetX, event.clientY - remoteControlsDrag.offsetY);
+      if (Math.abs(position.left - remoteControls.getBoundingClientRect().left) > 2 || Math.abs(position.top - remoteControls.getBoundingClientRect().top) > 2) remoteControlsDrag.moved = true;
       remoteControls.style.left = `${position.left}px`;
       remoteControls.style.top = `${position.top}px`;
       remoteControls.style.right = "auto";
@@ -465,13 +470,14 @@ function attachViewerControlHandlers() {
 
     const finishRemoteControlsDrag = (event) => {
       if (!remoteControlsDrag || event.pointerId !== remoteControlsDrag.pointerId) return;
-      remoteControlsHandle?.releasePointerCapture?.(event.pointerId);
+      remoteControlsToggle?.releasePointerCapture?.(event.pointerId);
       remoteControls?.classList.remove("dragging");
+      if (remoteControlsDrag.moved) ignoreRemoteControlsToggleClick = true;
       remoteControlsDrag = null;
       saveRemoteControlsPreferences();
     };
-    remoteControlsHandle?.addEventListener("pointerup", finishRemoteControlsDrag);
-    remoteControlsHandle?.addEventListener("pointercancel", finishRemoteControlsDrag);
+    remoteControlsToggle?.addEventListener("pointerup", finishRemoteControlsDrag);
+    remoteControlsToggle?.addEventListener("pointercancel", finishRemoteControlsDrag);
   }
 
   releaseInputBtn?.addEventListener("click", () => {
@@ -481,7 +487,7 @@ function attachViewerControlHandlers() {
 
   switchHostAppBtn?.addEventListener("click", () => {
     sendControlMessage({ type: "host-alt-tab" });
-    viewerMessage.textContent = "Switched to the next app on the host.";
+    viewerMessage.textContent = "Sent Alt+Tab to the host.";
   });
 
   document.addEventListener("fullscreenchange", () => {
