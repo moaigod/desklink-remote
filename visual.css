@@ -448,6 +448,10 @@ body.remote-fullscreen #remoteVideo {
   cursor: none;
 }
 
+body.show-local-cursor #remoteVideo {
+  cursor: crosshair !important;
+}
+
 :fullscreen #remoteVideo {
   cursor: none !important;
 }
@@ -468,6 +472,11 @@ body.remote-fullscreen #remoteVideo {
   border: 1px solid rgba(255, 255, 255, 0.36);
   color: #fff8ec;
   cursor: pointer;
+}
+
+.remote-controls-action.danger {
+  background: rgba(255, 112, 144, 0.22);
+  border-color: rgba(255, 150, 172, 0.58);
 }
 
 .remote-controls-toggle {

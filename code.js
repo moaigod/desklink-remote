@@ -11,6 +11,11 @@ const remoteControlsToggle = document.getElementById("remoteControlsToggle");
 const remoteControlsPanel = document.getElementById("remoteControlsPanel");
 const remoteControlsClose = document.getElementById("remoteControlsClose");
 const remoteControlsLocked = document.getElementById("remoteControlsLocked");
+const disconnectBtn = document.getElementById("disconnectBtn");
+const viewOnlyBtn = document.getElementById("viewOnlyBtn");
+const localCursorBtn = document.getElementById("localCursorBtn");
+const hideControlsBtn = document.getElementById("hideControlsBtn");
+const connectionStats = document.getElementById("connectionStats");
 const roomCodeLabel = document.getElementById("roomCodeLabel");
 const heroStatus = document.getElementById("heroStatus");
 const heroMessage = document.getElementById("heroMessage");
@@ -56,6 +61,12 @@ const remoteControlsPreferencesKey = "desklink-remote-controls";
 let remoteControlsHandlersAttached = false;
 let remoteControlsDrag = null;
 let ignoreRemoteControlsToggleClick = false;
+let viewOnlyMode = false;
+let showLocalCursor = false;
+let controlsHiddenUntilFullscreen = false;
+let connectionStatsTimer = null;
+
+const viewerInputTypes = new Set(["mouse-move", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
 
 function clampRemoteControlsPosition(left, top) {
   if (!remoteControls) return { left, top };
@@ -97,6 +108,62 @@ function showRemoteControls() {
   if (!remoteControls || role !== "viewer") return;
   remoteControls.hidden = false;
   applyRemoteControlsPreferences();
+}
+
+function stopConnectionStats() {
+  if (connectionStatsTimer) window.clearInterval(connectionStatsTimer);
+  connectionStatsTimer = null;
+}
+
+async function updateConnectionStats() {
+  if (!connectionStats || !peerConnection || role !== "viewer") return;
+  try {
+    const reports = await peerConnection.getStats();
+    let fps = null;
+    let pair = null;
+    reports.forEach((report) => {
+      if (report.type === "inbound-rtp" && report.kind === "video" && Number.isFinite(report.framesPerSecond)) fps = Math.round(report.framesPerSecond);
+      if (report.type === "candidate-pair" && (report.selected || (report.nominated && report.state === "succeeded"))) pair = report;
+    });
+    let route = "connecting";
+    let ping = null;
+    if (pair) {
+      ping = Number.isFinite(pair.currentRoundTripTime) ? Math.round(pair.currentRoundTripTime * 1000) : null;
+      const local = reports.get(pair.localCandidateId);
+      const remote = reports.get(pair.remoteCandidateId);
+      route = local?.candidateType === "relay" || remote?.candidateType === "relay" ? "TURN relay" : "direct";
+    }
+    connectionStats.textContent = `Connection: ${route}${ping === null ? "" : ` · ${ping} ms`}${fps === null ? "" : ` · ${fps} FPS`}`;
+  } catch {
+    connectionStats.textContent = "Connection: stats unavailable.";
+  }
+}
+
+function startConnectionStats() {
+  stopConnectionStats();
+  updateConnectionStats();
+  connectionStatsTimer = window.setInterval(updateConnectionStats, 1000);
+}
+
+function disconnectViewer() {
+  if (role !== "viewer") return;
+  sendControlMessage({ type: "release-input" });
+  sessionActive = false;
+  stopRequested = true;
+  clearReconnectTimer();
+  stopConnectionStats();
+  stopControllerCapture();
+  if (peerConnection) peerConnection.close();
+  peerConnection = null;
+  controlChannel = null;
+  if (ws) ws.close();
+  ws = null;
+  remoteVideo.srcObject = null;
+  connected = false;
+  remoteControls.hidden = true;
+  heroStatus.textContent = "Disconnected";
+  heroStatus.className = "status-pill standby";
+  viewerMessage.textContent = "Disconnected from the host.";
 }
 
 function getRecentSessions() {
@@ -249,6 +316,7 @@ function reportStatus(message, detail = null) {
 }
 
 function sendControlMessage(message) {
+  if (viewOnlyMode && viewerInputTypes.has(message.type)) return;
   if (controlChannel && controlChannel.readyState === "open") {
     controlChannel.send(JSON.stringify(message));
     return;
@@ -485,6 +553,28 @@ function attachViewerControlHandlers() {
     viewerMessage.textContent = "Released any stuck remote keys and mouse buttons.";
   });
 
+  disconnectBtn?.addEventListener("click", disconnectViewer);
+
+  viewOnlyBtn?.addEventListener("click", () => {
+    viewOnlyMode = !viewOnlyMode;
+    if (viewOnlyMode) sendControlMessage({ type: "release-input" });
+    viewOnlyBtn.setAttribute("aria-pressed", String(viewOnlyMode));
+    viewOnlyBtn.textContent = `View-only: ${viewOnlyMode ? "on" : "off"}`;
+    viewerMessage.textContent = viewOnlyMode ? "View-only mode is on. Remote input is paused." : "View-only mode is off. Remote input is ready.";
+  });
+
+  localCursorBtn?.addEventListener("click", () => {
+    showLocalCursor = !showLocalCursor;
+    document.body.classList.toggle("show-local-cursor", showLocalCursor);
+    localCursorBtn.setAttribute("aria-pressed", String(showLocalCursor));
+    localCursorBtn.textContent = `Show local cursor: ${showLocalCursor ? "on" : "off"}`;
+  });
+
+  hideControlsBtn?.addEventListener("click", () => {
+    controlsHiddenUntilFullscreen = true;
+    remoteControls.hidden = true;
+  });
+
   switchHostAppBtn?.addEventListener("click", () => {
     sendControlMessage({ type: "host-alt-tab" });
     viewerMessage.textContent = "Sent Alt+Tab to the host.";
@@ -495,6 +585,10 @@ function attachViewerControlHandlers() {
     document.body.classList.toggle("remote-fullscreen", isFullscreen);
     fullscreenBtn.textContent = isFullscreen ? "Exit fullscreen" : "Fullscreen";
     remoteVideo.style.cursor = isFullscreen ? "none" : "";
+    if (isFullscreen && controlsHiddenUntilFullscreen) {
+      controlsHiddenUntilFullscreen = false;
+      showRemoteControls();
+    }
   });
 
   const releaseRemoteInput = () => {
@@ -577,6 +671,7 @@ function resetPeerSession() {
   peerConnection = null;
   controlChannel = null;
   stopControllerCapture();
+  stopConnectionStats();
   offerSent = false;
   connected = false;
   signalingReady = false;
@@ -746,6 +841,7 @@ function ensurePeerConnection() {
       heroStatus.className = "status-pill connecting";
       viewerMessage.textContent = "The remote screen is live.";
       showRemoteControls();
+      startConnectionStats();
       if (hostMessage) {
         hostMessage.textContent = "Connected to the viewer.";
       }
@@ -770,6 +866,7 @@ function ensurePeerConnection() {
       if (role === "viewer") {
         remoteVideo.focus({ preventScroll: true });
         showRemoteControls();
+        startConnectionStats();
       }
     } else if (peerConnection.connectionState === "failed") {
       reportStatus("The peer connection failed. Refresh and try again.");

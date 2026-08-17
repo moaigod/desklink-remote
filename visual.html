@@ -111,9 +111,14 @@
           <strong>DeskLink controls</strong>
           <button id="remoteControlsClose" class="remote-controls-close" type="button" aria-label="Close remote controls">×</button>
         </div>
+        <button id="disconnectBtn" class="remote-controls-action danger" type="button">Disconnect</button>
+        <button id="viewOnlyBtn" class="remote-controls-action" type="button" aria-pressed="false">View-only: off</button>
+        <button id="localCursorBtn" class="remote-controls-action" type="button" aria-pressed="false">Show local cursor: off</button>
         <button id="switchHostAppBtn" class="remote-controls-action" type="button">⇄ Alt+Tab on host</button>
         <button id="releaseInputBtn" class="remote-controls-action" type="button">⌁ Fix stuck keys</button>
+        <button id="hideControlsBtn" class="remote-controls-action" type="button">Hide until fullscreen</button>
         <p id="controllerMessage" class="remote-controls-note">Controller: plug one into this device, then join a desktop.</p>
+        <p id="connectionStats" class="remote-controls-note">Connection: waiting for a stream.</p>
         <label class="remote-controls-lock">
           <input id="remoteControlsLocked" type="checkbox" checked />
           Lock controls in place
