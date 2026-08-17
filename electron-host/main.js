@@ -195,7 +195,7 @@ ipcMain.handle('get-connection-config', () => ({
 }));
 
 ipcMain.on('inject-input', (_event, message) => {
-  if (!message || !['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'key-down', 'key-up', 'text'].includes(message.type)) return;
+  if (!message || !['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'mouse-scroll', 'key-down', 'key-up', 'text'].includes(message.type)) return;
   sendToInputHelper(message);
 });
 

@@ -217,6 +217,11 @@ function handleInboundControlMessage(message) {
       handleRemoteMouseEvent("mouseup", message.payload);
   } else if (message.type === "mouse-click") {
       handleRemoteMouseEvent("click", message.payload);
+  } else if (message.type === "mouse-scroll") {
+      const x = Math.round(message.payload.x * window.innerWidth);
+      const y = Math.round(message.payload.y * window.innerHeight);
+      const target = document.elementFromPoint(x, y) || document.body;
+      target.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: x, clientY: y, deltaY: -(message.payload.delta || 0) }));
   } else if (message.type === "key-down") {
       handleRemoteKeyEvent("keydown", message.payload);
   } else if (message.type === "key-up") {
@@ -316,6 +321,8 @@ function attachViewerControlHandlers() {
     if (!position) return;
     const { x, y } = position;
     event.preventDefault();
+    remoteVideo.setPointerCapture?.(event.pointerId);
+    sendControlMessage({ type: "mouse-down", payload: { x, y, button: event.button } });
   });
 
   remoteVideo.addEventListener("pointerup", (event) => {
@@ -325,8 +332,26 @@ function attachViewerControlHandlers() {
     const position = getVideoPosition(event);
     if (!position) return;
     const { x, y } = position;
-    sendControlMessage({ type: "mouse-click", payload: { x, y, button: event.button } });
+    event.preventDefault();
+    if (remoteVideo.hasPointerCapture?.(event.pointerId)) remoteVideo.releasePointerCapture(event.pointerId);
+    sendControlMessage({ type: "mouse-up", payload: { x, y, button: event.button } });
   });
+
+  remoteVideo.addEventListener("pointercancel", (event) => {
+    if (!connected || role !== "viewer") return;
+    const position = getVideoPosition(event);
+    if (!position) return;
+    sendControlMessage({ type: "mouse-up", payload: { ...position, button: event.button || 0 } });
+  });
+
+  remoteVideo.addEventListener("wheel", (event) => {
+    if (!connected || role !== "viewer") return;
+    const position = getVideoPosition(event);
+    if (!position) return;
+    event.preventDefault();
+    const delta = Math.max(-960, Math.min(960, Math.round(-event.deltaY)));
+    if (delta) sendControlMessage({ type: "mouse-scroll", payload: { ...position, delta } });
+  }, { passive: false });
 
   remoteVideo.addEventListener("click", (event) => {
     // Keep Chrome's media controls from handling the click locally.

@@ -85,6 +85,14 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
           [DeskLinkInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
         }
       }
+      if ($message.type -eq 'mouse-scroll') {
+        $wheelDelta = [int]$payload.delta
+        if ($wheelDelta -gt 960) { $wheelDelta = 960 }
+        if ($wheelDelta -lt -960) { $wheelDelta = -960 }
+        if ($wheelDelta -ne 0) {
+          [DeskLinkInput]::mouse_event(0x0800, 0, 0, [uint32]$wheelDelta, [UIntPtr]::Zero)
+        }
+      }
     } elseif ($message.type -eq 'text') {
       foreach ($character in [string]$payload.text) {
         $sent = [DeskLinkInput]::SendUnicode([char]$character)
