@@ -3,6 +3,7 @@ node_modules/
 dist/
 dist-developer/
 backups/full/
+releases/host/
 desklink-osk/src/**/bin/
 desklink-osk/src/**/obj/
 electron-host/vigem-bridge/bin/
