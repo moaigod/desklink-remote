@@ -419,6 +419,18 @@ body.remote-fullscreen * {
   cursor: none !important;
 }
 
+/* The remote surface stays cursorless, but settings must remain easy to use. */
+body.remote-fullscreen .remote-controls,
+body.remote-fullscreen .remote-controls * {
+  cursor: default !important;
+}
+
+body.remote-fullscreen .remote-controls button,
+body.remote-fullscreen .remote-controls input,
+body.remote-fullscreen .remote-controls select {
+  cursor: pointer !important;
+}
+
 body.remote-fullscreen .app-shell,
 body.remote-fullscreen main,
 body.remote-fullscreen .panel-grid,
