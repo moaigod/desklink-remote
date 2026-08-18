@@ -182,14 +182,8 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       continue
     }
     if ($message.type -eq 'set-desklink-osk-mode') {
-      $useDeskLinkOsk = [bool]$payload.enabled
-      if ($useDeskLinkOsk) {
-        $useOnScreenKeyboard = $false
-        Get-DeskLinkOskWindow | Out-Null
-        [Console]::Error.WriteLine('DeskLink OSK mode: enabled. Keyboard input will invoke the DeskLink OSK buttons.')
-      } else {
-        [Console]::Error.WriteLine('DeskLink OSK mode: disabled. Keyboard input will use normal injection.')
-      }
+      $useDeskLinkOsk = $false
+      [Console]::Error.WriteLine('DeskLink OSK overlay mode changed. Keyboard input uses normal host injection.')
       continue
     }
     if ($message.type -eq 'release-input') {

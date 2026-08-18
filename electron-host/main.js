@@ -4,6 +4,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 let mainWindow;
+let oskOverlayWindow;
 let inputHelper;
 let tray;
 let isQuitting = false;
@@ -173,6 +174,28 @@ function createWindow() {
   });
 }
 
+function setDeskLinkOskOverlay(enabled) {
+  if (!enabled) {
+    if (oskOverlayWindow && !oskOverlayWindow.isDestroyed()) oskOverlayWindow.hide();
+    return;
+  }
+  if (!oskOverlayWindow || oskOverlayWindow.isDestroyed()) {
+    const display = screen.getPrimaryDisplay();
+    const { x, y, width, height } = display.workArea;
+    oskOverlayWindow = new BrowserWindow({
+      x, y: y + height - 310, width, height: 300,
+      frame: false, transparent: true, alwaysOnTop: true, focusable: false,
+      skipTaskbar: true, resizable: false, movable: false,
+      webPreferences: { contextIsolation: false, nodeIntegration: true },
+    });
+    oskOverlayWindow.setIgnoreMouseEvents(true, { forward: true });
+    oskOverlayWindow.loadFile(path.join(__dirname, 'osk-overlay.html'));
+    oskOverlayWindow.once('ready-to-show', () => oskOverlayWindow.showInactive());
+  } else {
+    oskOverlayWindow.showInactive();
+  }
+}
+
 ipcMain.handle('get-screen-sources', async () => {
   const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], fetchWindowIcons: true, thumbnailSize: { width: 320, height: 180 } });
   const displays = screen.getAllDisplays();
@@ -205,6 +228,10 @@ ipcMain.handle('get-connection-config', () => ({
 
 ipcMain.on('inject-input', (_event, message) => {
   if (!message || !['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'mouse-scroll', 'key-down', 'key-up', 'text', 'release-input', 'host-alt-tab', 'set-desklink-osk-mode'].includes(message.type)) return;
+  if (message.type === 'set-desklink-osk-mode') setDeskLinkOskOverlay(Boolean(message.payload?.enabled));
+  if (oskOverlayWindow && !oskOverlayWindow.isDestroyed() && oskOverlayWindow.isVisible() && ['key-down', 'key-up', 'release-input'].includes(message.type)) {
+    oskOverlayWindow.webContents.send('desklink-key-state', message);
+  }
   sendToInputHelper(message);
 });
 
