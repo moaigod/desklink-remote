@@ -76,7 +76,7 @@ let keyboardOverlayEnabled = false;
 let desklinkOskMode = false;
 let interceptionKeyboardMode = false;
 
-const viewerInputTypes = new Set(["mouse-move", "mouse-relative", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
+const viewerInputTypes = new Set(["mouse-move", "mouse-relative", "mouse-button", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
 
 const peerKeyboardLayout = [
   ["Escape", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Backspace"],
@@ -521,6 +521,12 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
+    if (document.pointerLockElement === remoteVideo) {
+      const dx = Math.round(event.movementX || 0);
+      const dy = Math.round(event.movementY || 0);
+      if (dx || dy) sendControlMessage({ type: "mouse-relative", payload: { dx, dy } });
+      return;
+    }
     const position = getVideoPosition(event);
     if (!position) return;
     const { x, y } = position;
@@ -529,6 +535,11 @@ function attachViewerControlHandlers() {
 
   remoteVideo.addEventListener("pointerdown", (event) => {
     if (!connected || role !== "viewer") {
+      return;
+    }
+    if (document.pointerLockElement === remoteVideo) {
+      event.preventDefault();
+      sendControlMessage({ type: "mouse-button", payload: { button: event.button, down: true } });
       return;
     }
     const position = getVideoPosition(event);
@@ -543,6 +554,11 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
+    if (document.pointerLockElement === remoteVideo) {
+      event.preventDefault();
+      sendControlMessage({ type: "mouse-button", payload: { button: event.button, down: false } });
+      return;
+    }
     const position = getVideoPosition(event);
     if (!position) return;
     const { x, y } = position;
@@ -553,6 +569,10 @@ function attachViewerControlHandlers() {
 
   remoteVideo.addEventListener("pointercancel", (event) => {
     if (!connected || role !== "viewer") return;
+    if (document.pointerLockElement === remoteVideo) {
+      sendControlMessage({ type: "mouse-button", payload: { button: event.button || 0, down: false } });
+      return;
+    }
     const position = getVideoPosition(event);
     if (!position) return;
     sendControlMessage({ type: "mouse-up", payload: { ...position, button: event.button || 0 } });
@@ -762,6 +782,26 @@ function attachViewerControlHandlers() {
     if (event.key === "F11") {
       return;
     }
+    // Fullscreen game mouse mode: use the physical Backslash key as an
+    // explicit toggle so normal desktop control never becomes pointer-locked.
+    if (event.code === "Backslash" && document.fullscreenElement) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (document.pointerLockElement === remoteVideo) {
+        document.exitPointerLock?.();
+        viewerMessage.textContent = "Game mouse mode off. Client cursor released.";
+      } else {
+        try {
+          const lockResult = remoteVideo.requestPointerLock?.({ unadjustedMovement: true });
+          lockResult?.catch?.(() => remoteVideo.requestPointerLock?.());
+          viewerMessage.textContent = "Game mouse mode on. Press \\ to release the client cursor.";
+        } catch {
+          remoteVideo.requestPointerLock?.();
+          viewerMessage.textContent = "Game mouse mode on. Press \\ to release the client cursor.";
+        }
+      }
+      return;
+    }
     // Alt+Tab and the Windows/Command key are owned by the viewer computer.
     // Browsers can lose focus after the key-down and never deliver key-up,
     // which leaves Alt stuck on the host and turns later Tab presses into
@@ -790,6 +830,11 @@ function attachViewerControlHandlers() {
       return;
     }
     if (event.key === "F11") {
+      return;
+    }
+    if (event.code === "Backslash" && document.fullscreenElement) {
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
     if (event.key === "Alt" || event.key === "Meta" || event.key === "AltGraph") {

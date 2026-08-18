@@ -279,6 +279,15 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       }
       continue
     }
+    if ($message.type -eq 'mouse-button') {
+      $buttonFlag = if ($payload.button -eq 2) {
+        if ($payload.down) { 0x0008 } else { 0x0010 }
+      } else {
+        if ($payload.down) { 0x0002 } else { 0x0004 }
+      }
+      [DeskLinkInput]::mouse_event($buttonFlag, 0, 0, 0, [UIntPtr]::Zero)
+      continue
+    }
     if ($message.type -like 'mouse-*') {
       # Keep the fractional browser coordinates. PowerShell can select the
       # integer Math.Min/Max overload here, which rounds input to 0 or 1.
