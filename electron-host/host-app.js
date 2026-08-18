@@ -270,6 +270,7 @@ function handleInboundControlMessage(message) {
           controllerDebug.textContent = `Controller: ${controllers.length} connected · pressed [${pressedButtons}] · axes [${axes}] · ${pressed} total button${pressed === 1 ? '' : 's'} held.`;
         }
       }
+      window.electronAPI.injectInput(message);
       return;
     }
     if (['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'mouse-scroll', 'key-down', 'key-up', 'text', 'release-input', 'host-alt-tab', 'set-desklink-osk-mode'].includes(message.type)) {

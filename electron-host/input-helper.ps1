@@ -2,6 +2,7 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class DeskLinkInput {
+  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] public static extern bool SetDllDirectory(string lpPathName);
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -24,6 +25,27 @@ public static class DeskLinkInput {
     return SendInput(2, inputs, Marshal.SizeOf(typeof(INPUT)));
   }
 }
+
+public static class DeskLinkViGEm {
+  [StructLayout(LayoutKind.Sequential, Pack=1)] public struct XUSB_REPORT {
+    public ushort wButtons;
+    public byte bLeftTrigger;
+    public byte bRightTrigger;
+    public short sThumbLX;
+    public short sThumbLY;
+    public short sThumbRX;
+    public short sThumbRY;
+  }
+  [DllImport("vigemclient.dll", CallingConvention=CallingConvention.Cdecl)] public static extern IntPtr vigem_alloc();
+  [DllImport("vigemclient.dll", CallingConvention=CallingConvention.Cdecl)] public static extern void vigem_free(IntPtr client);
+  [DllImport("vigemclient.dll", CallingConvention=CallingConvention.Cdecl)] public static extern uint vigem_connect(IntPtr client);
+  [DllImport("vigemclient.dll", CallingConvention=CallingConvention.Cdecl)] public static extern void vigem_disconnect(IntPtr client);
+  [DllImport("vigemclient.dll", CallingConvention=CallingConvention.Cdecl)] public static extern IntPtr vigem_target_x360_alloc();
+  [DllImport("vigemclient.dll", CallingConvention=CallingConvention.Cdecl)] public static extern void vigem_target_free(IntPtr target);
+  [DllImport("vigemclient.dll", CallingConvention=CallingConvention.Cdecl)] public static extern uint vigem_target_add(IntPtr client, IntPtr target);
+  [DllImport("vigemclient.dll", CallingConvention=CallingConvention.Cdecl)] public static extern void vigem_target_remove(IntPtr client, IntPtr target);
+  [DllImport("vigemclient.dll", CallingConvention=CallingConvention.Cdecl)] public static extern uint vigem_target_x360_update(IntPtr client, IntPtr target, ref XUSB_REPORT report);
+}
 '@
 
 $keyMap = @{
@@ -36,72 +58,45 @@ $keyMap = @{
   AudioVolumeMute = 0xAD; AudioVolumeDown = 0xAE; AudioVolumeUp = 0xAF; MediaTrackNext = 0xB0; MediaTrackPrevious = 0xB1; MediaStop = 0xB2; MediaPlayPause = 0xB3
 }
 $targetBounds = $null
-$useOnScreenKeyboard = $false
 $useDeskLinkOsk = $false
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
+$viGemBridgeLoaded = $false
+$viGemUnavailable = $false
 
-function Get-DeskLinkOskWindow {
-  $appRoot = Split-Path -Parent $PSScriptRoot
-  $exePath = Join-Path $appRoot 'desklink-osk\releases\DeskLinkOSK-0.1.0\DeskLinkOsk.exe'
-  $process = Get-Process -Name DeskLinkOsk -ErrorAction SilentlyContinue | Select-Object -First 1
-  if (-not $process) {
-    if (-not (Test-Path -LiteralPath $exePath)) {
-      [Console]::Error.WriteLine("DeskLink OSK mode: app not found at $exePath")
-      return $null
-    }
-    Start-Process -FilePath $exePath
-    for ($attempt = 0; $attempt -lt 15 -and -not $process; $attempt++) {
-      Start-Sleep -Milliseconds 100
-      $process = Get-Process -Name DeskLinkOsk -ErrorAction SilentlyContinue | Select-Object -First 1
-    }
-  }
-  if (-not $process) { return $null }
-  for ($attempt = 0; $attempt -lt 20; $attempt++) {
-    $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
-    $window = $windows | Where-Object { $_.Current.ProcessId -eq $process.Id } | Select-Object -First 1
-    if ($window) { return $window }
-    Start-Sleep -Milliseconds 100
-  }
-  return $null
+function Stop-ViGEmController {
+  if ($viGemBridgeLoaded) { try { [DeskLink.ViGEm.ViGEmBridge]::Disconnect() } catch { } }
 }
 
-function Invoke-DeskLinkOskKey($key) {
-  $window = Get-DeskLinkOskWindow
-  if (-not $window) { [Console]::Error.WriteLine('DeskLink OSK mode: window was not found.'); return $false }
-  $name = if ($key -and $key.Length -eq 1) { $key.ToLowerInvariant() } else { [string]$key }
+function Start-ViGEmController {
+  if ($viGemBridgeLoaded) { return $true }
+  if ($viGemUnavailable) { return $false }
+  $bridgeDirectory = Join-Path $PSScriptRoot 'vigem-bridge\publish'
+  $clientAssembly = Join-Path $bridgeDirectory 'Nefarius.ViGEm.Client.dll'
+  $bridgeAssembly = Join-Path $bridgeDirectory 'DeskLinkViGEmBridge.dll'
+  if (-not (Test-Path -LiteralPath $clientAssembly) -or -not (Test-Path -LiteralPath $bridgeAssembly)) {
+    $script:viGemUnavailable = $true
+    [Console]::Error.WriteLine('ViGEm controller bridge is missing from DeskLink. Reinstall the latest DeskLink host app.')
+    return $false
+  }
   try {
-    $condition = New-Object System.Windows.Automation.PropertyCondition(
-      [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-      [System.Windows.Automation.ControlType]::Button
-    )
-    $button = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition) |
-      Where-Object { $_.Current.Name -eq $name } | Select-Object -First 1
-    if (-not $button) { [Console]::Error.WriteLine("DeskLink OSK mode: key '$name' was not found."); return $false }
-    $pattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-    ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
+    Add-Type -Path $clientAssembly
+    Add-Type -Path $bridgeAssembly
+    $script:viGemBridgeLoaded = $true
     return $true
   } catch {
-    [Console]::Error.WriteLine("DeskLink OSK mode: could not invoke '$name': $($_.Exception.Message)")
+    [Console]::Error.WriteLine("ViGEm controller bridge could not load: $($_.Exception.Message)")
+    $script:viGemUnavailable = $true
     return $false
   }
 }
 
-function Send-DeskLinkOskCommand($type, $key) {
-  Get-DeskLinkOskWindow | Out-Null
-  try {
-    $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'DeskLinkOsk', [System.IO.Pipes.PipeDirection]::Out)
-    $pipe.Connect(500)
-    $writer = New-Object System.IO.StreamWriter($pipe)
-    $writer.AutoFlush = $true
-    $writer.WriteLine((@{ type = $type; key = $key } | ConvertTo-Json -Compress))
-    $writer.Dispose()
-    $pipe.Dispose()
-    return $true
-  } catch {
-    [Console]::Error.WriteLine("DeskLink OSK mode: pipe command failed: $($_.Exception.Message)")
-    return $false
-  }
+function Update-ViGEmController($controller) {
+  if (-not (Start-ViGEmController)) { return }
+  $buttons = @($controller.buttons)
+  [bool[]]$pressed = @($buttons | ForEach-Object { [bool]$_.pressed })
+  [single[]]$values = @($buttons | ForEach-Object { [single]$_.value })
+  [single[]]$axes = @($controller.axes | ForEach-Object { [single]$_ })
+  $result = [DeskLink.ViGEm.ViGEmBridge]::Update($pressed, $values, $axes)
+  if ($result -ne 'ready') { [Console]::Error.WriteLine("ViGEm controller support failed: $result") }
 }
 
 function Get-OskKeyPoint($key) {
@@ -130,7 +125,9 @@ function Get-OskKeyPoint($key) {
 
 function Invoke-OskKey($key) {
   if (-not $key) { return $false }
-  $point = Get-OskKeyPoint ([string]$key)
+  $normalizedKey = [string]$key
+  if ($normalizedKey.Length -eq 1) { $normalizedKey = $normalizedKey.ToLowerInvariant() }
+  $point = Get-OskKeyPoint $normalizedKey
   if (-not $point) { [Console]::Error.WriteLine("DeskLink OSK mode: '$key' is not mapped."); return $false }
   $osk = Get-Process -Name osk -ErrorAction SilentlyContinue | Select-Object -First 1
   $handle = if ($osk) { $osk.MainWindowHandle } else { [IntPtr]::Zero }
@@ -170,24 +167,13 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       $targetBounds = @{ x = [int]$payload.x; y = [int]$payload.y; width = [int]$payload.width; height = [int]$payload.height }
       continue
     }
-    if ($message.type -eq 'set-osk-mode') {
-      $useOnScreenKeyboard = [bool]$payload.enabled
-      if ($useOnScreenKeyboard) { $useDeskLinkOsk = $false }
-      if ($useOnScreenKeyboard) {
-        Start-Process "$env:WINDIR\System32\osk.exe"
-        [Console]::Error.WriteLine('DeskLink OSK mode: enabled. Keyboard input will click Windows On-Screen Keyboard.')
-      } else {
-        [Console]::Error.WriteLine('DeskLink OSK mode: disabled. Keyboard input will use normal injection.')
-      }
-      continue
-    }
     if ($message.type -eq 'set-desklink-osk-mode') {
       $useDeskLinkOsk = [bool]$payload.enabled
       [Console]::Error.WriteLine("DeskLink OSK input mode: $useDeskLinkOsk")
       continue
     }
     if ($message.type -eq 'release-input') {
-      if ($useDeskLinkOsk) { Send-DeskLinkOskCommand 'release-input' $null | Out-Null }
+      Stop-ViGEmController
       # Browser focus can disappear before keyup. Never leave modifiers held.
       foreach ($key in @(0x10, 0x11, 0x12, 0x5B, 0x5C)) {
         [DeskLinkInput]::keybd_event($key, 0, 0x0002, [UIntPtr]::Zero)
@@ -203,6 +189,11 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       [DeskLinkInput]::keybd_event(0x09, 0, 0, [UIntPtr]::Zero)
       [DeskLinkInput]::keybd_event(0x09, 0, 0x0002, [UIntPtr]::Zero)
       [DeskLinkInput]::keybd_event(0x12, 0, 0x0002, [UIntPtr]::Zero)
+      continue
+    }
+    if ($message.type -eq 'gamepad-state') {
+      $controllers = @($payload.controllers)
+      if ($controllers.Count -gt 0) { Update-ViGEmController $controllers[0] } else { Stop-ViGEmController }
       continue
     }
     if ($message.type -like 'mouse-*') {
@@ -262,12 +253,6 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
     } elseif ($useDeskLinkOsk -and $message.type -eq 'key-up') {
       $vk = Get-VirtualKey $payload.key
       if ($null -ne $vk) { [DeskLinkInput]::keybd_event($vk, 0, 0x0002, [UIntPtr]::Zero) }
-    } elseif ($useOnScreenKeyboard -and $message.type -eq 'text') {
-      foreach ($character in [string]$payload.text) { Invoke-OskKey ([string]$character) | Out-Null }
-    } elseif ($useOnScreenKeyboard -and $message.type -eq 'key-down') {
-      Invoke-OskKey ([string]$payload.key) | Out-Null
-    } elseif ($useOnScreenKeyboard -and $message.type -eq 'key-up') {
-      # Windows On-Screen Keyboard buttons are clicked, not held. Ignore key-up.
       continue
     } elseif ($message.type -eq 'text') {
       foreach ($character in [string]$payload.text) {
@@ -284,3 +269,5 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
     }
   } catch { [Console]::Error.WriteLine($_.Exception.Message) }
 }
+
+Stop-ViGEmController

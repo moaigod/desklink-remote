@@ -4,6 +4,8 @@ dist/
 dist-developer/
 desklink-osk/src/**/bin/
 desklink-osk/src/**/obj/
+electron-host/vigem-bridge/bin/
+electron-host/vigem-bridge/obj/
 DeskLink-*-release.zip
 assets/embedded-exe-icon.png
 
