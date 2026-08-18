@@ -3,6 +3,8 @@ using System;
 using System.Runtime.InteropServices;
 public static class DeskLinkInput {
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr FindWindow(string className, string windowName);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
     [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, int data, UIntPtr extra);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
   [DllImport("user32.dll")] public static extern short VkKeyScan(char ch);
@@ -12,6 +14,7 @@ public static class DeskLinkInput {
   [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public UIntPtr dwExtraInfo; }
   [StructLayout(LayoutKind.Sequential)] public struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public UIntPtr dwExtraInfo; }
   [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint count, INPUT[] inputs, int size);
+  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
   public static uint SendUnicode(char character) {
     var inputs = new INPUT[2];
     inputs[0].type = 1; inputs[0].U.ki.wScan = character; inputs[0].U.ki.dwFlags = 0x0004;
@@ -32,70 +35,56 @@ $keyMap = @{
 }
 $targetBounds = $null
 $useOnScreenKeyboard = $false
-$oskAutomationAvailable = $false
-try {
-  Add-Type -AssemblyName UIAutomationClient
-  Add-Type -AssemblyName UIAutomationTypes
-  $oskAutomationAvailable = $true
-} catch {
-  [Console]::Error.WriteLine('DeskLink OSK mode: Windows UI Automation is unavailable.')
-}
 
-function Get-OskButtonNames($key) {
-  switch ($key) {
-    ' ' { return @('Space', 'SPACE') }
-    'Enter' { return @('Enter', 'ENTER') }
-    'Backspace' { return @('Backspace', 'BKSP') }
-    'Tab' { return @('Tab', 'TAB') }
-    'Escape' { return @('Esc', 'Escape') }
-    'CapsLock' { return @('Caps', 'Caps Lock') }
-    'Control' { return @('Ctrl', 'Control') }
-    'ArrowLeft' { return @('Left', 'Left Arrow') }
-    'ArrowRight' { return @('Right', 'Right Arrow') }
-    'ArrowUp' { return @('Up', 'Up Arrow') }
-    'ArrowDown' { return @('Down', 'Down Arrow') }
-    default { return @([string]$key, ([string]$key).ToUpperInvariant()) }
-  }
+function Get-OskKeyPoint($key) {
+  $topRow = @('Escape', '`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=')
+  $numberRow = @('Tab', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\\')
+  $letterRow = @('CapsLock', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', "'")
+  $bottomRow = @('Shift', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/')
+  $functionIndex = [array]::IndexOf($topRow, $key)
+  if ($functionIndex -ge 0) { return @{ x = 0.007 + (($functionIndex + 0.5) / 16.0 * 0.698); y = 0.375 } }
+  if ($key -eq 'Backspace') { return @{ x = 0.007 + (15.0 / 16.0 * 0.698); y = 0.375 } }
+  $numberIndex = [array]::IndexOf($numberRow, $key)
+  if ($numberIndex -ge 0) { return @{ x = 0.007 + (($numberIndex + 0.5) / 16.0 * 0.698); y = 0.505 } }
+  if ($key -eq 'Delete') { return @{ x = 0.007 + (15.0 / 16.0 * 0.698); y = 0.505 } }
+  $letterIndex = [array]::IndexOf($letterRow, $key)
+  if ($letterIndex -ge 0) { return @{ x = 0.007 + (($letterIndex + 0.5) / 16.0 * 0.698); y = 0.635 } }
+  if ($key -eq 'Enter') { return @{ x = 0.007 + (14.6 / 16.0 * 0.698); y = 0.635 } }
+  $bottomIndex = [array]::IndexOf($bottomRow, $key)
+  if ($bottomIndex -ge 0) { return @{ x = 0.007 + (($bottomIndex + 0.5) / 16.0 * 0.698); y = 0.770 } }
+  if ($key -eq ' ') { return @{ x = 0.007 + (7.8 / 16.0 * 0.698); y = 0.900 } }
+  if ($key -eq 'Control') { return @{ x = 0.007 + (1.6 / 16.0 * 0.698); y = 0.900 } }
+  if ($key -eq 'Alt') { return @{ x = 0.007 + (3.4 / 16.0 * 0.698); y = 0.900 } }
+  $nav = @{ Home = @(0.755, 0.375); PageUp = @(0.835, 0.375); End = @(0.755, 0.505); PageDown = @(0.835, 0.505); Insert = @(0.755, 0.635); Pause = @(0.835, 0.635); PrintScreen = @(0.755, 0.770); ScrollLock = @(0.835, 0.770); ArrowLeft = @(0.495, 0.900); ArrowDown = @(0.540, 0.900); ArrowUp = @(0.585, 0.900); ArrowRight = @(0.630, 0.900) }
+  if ($nav.ContainsKey($key)) { return @{ x = $nav[$key][0]; y = $nav[$key][1] } }
+  return $null
 }
 
 function Invoke-OskKey($key) {
-  if (-not $oskAutomationAvailable -or -not $key) { return $false }
+  if (-not $key) { return $false }
+  $point = Get-OskKeyPoint ([string]$key)
+  if (-not $point) { [Console]::Error.WriteLine("DeskLink OSK mode: '$key' is not mapped."); return $false }
   $osk = Get-Process -Name osk -ErrorAction SilentlyContinue | Select-Object -First 1
-  if (-not $osk) {
+  $handle = if ($osk) { $osk.MainWindowHandle } else { [IntPtr]::Zero }
+  if ($handle -eq [IntPtr]::Zero) {
     Start-Process "$env:WINDIR\System32\osk.exe"
-    Start-Sleep -Milliseconds 500
-    $osk = Get-Process -Name osk -ErrorAction SilentlyContinue | Select-Object -First 1
+    for ($attempt = 0; $attempt -lt 10 -and $handle -eq [IntPtr]::Zero; $attempt++) {
+      Start-Sleep -Milliseconds 100
+      $osk = Get-Process -Name osk -ErrorAction SilentlyContinue | Select-Object -First 1
+      if ($osk) { $handle = $osk.MainWindowHandle }
+    }
   }
-  if (-not $osk -or $osk.MainWindowHandle -eq [IntPtr]::Zero) {
+  $rect = New-Object DeskLinkInput+RECT
+  if ($handle -eq [IntPtr]::Zero -or -not [DeskLinkInput]::GetWindowRect($handle, [ref]$rect)) {
     [Console]::Error.WriteLine('DeskLink OSK mode: On-Screen Keyboard did not open.')
     return $false
   }
-  try {
-    $window = [System.Windows.Automation.AutomationElement]::FromHandle($osk.MainWindowHandle)
-    $condition = New-Object System.Windows.Automation.PropertyCondition(
-      [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-      [System.Windows.Automation.ControlType]::Button
-    )
-    $buttons = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
-    $wantedNames = Get-OskButtonNames ([string]$key)
-    $button = $null
-    foreach ($candidate in $buttons) {
-      if ($wantedNames -contains $candidate.Current.Name) {
-        $button = $candidate
-        break
-      }
-    }
-    if (-not $button) {
-      [Console]::Error.WriteLine("DeskLink OSK mode: no key button found for '$key'.")
-      return $false
-    }
-    $pattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-    ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
-    return $true
-  } catch {
-    [Console]::Error.WriteLine("DeskLink OSK mode: could not press '$key': $($_.Exception.Message)")
-    return $false
-  }
+  $x = $rect.Left + [int](($rect.Right - $rect.Left) * [double]$point.x)
+  $y = $rect.Top + [int](($rect.Bottom - $rect.Top) * [double]$point.y)
+  [DeskLinkInput]::SetCursorPos($x, $y)
+  [DeskLinkInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+  [DeskLinkInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+  return $true
 }
 
 function Get-VirtualKey($key) {
