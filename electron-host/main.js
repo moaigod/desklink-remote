@@ -34,7 +34,7 @@ function showMainWindow() {
 
 function createTray() {
   if (tray) return;
-  const icon = nativeImage.createFromPath(assetPath('desklink-icon.png'));
+  const icon = nativeImage.createFromPath(assetPath('desklink-cosmic-logo.png'));
   tray = new Tray(icon);
   tray.setToolTip('DeskLink Host App');
   tray.setContextMenu(Menu.buildFromTemplate([
@@ -154,7 +154,7 @@ function createWindow() {
     width: 1100,
     height: 780,
     title: 'DeskLink Host App',
-    icon: assetPath('desklink.ico'),
+    icon: assetPath('desklink-cosmic.ico'),
     show: !launchInBackground,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
