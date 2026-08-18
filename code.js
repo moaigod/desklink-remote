@@ -573,12 +573,25 @@ function attachViewerControlHandlers() {
     event.stopPropagation();
   });
 
+  remoteVideo.addEventListener("contextmenu", (event) => {
+    // A right-click is remote input while in the immersive viewer, never the
+    // browser's own menu. Keep the normal page menu available outside it.
+    if (document.fullscreenElement) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+
   fullscreenBtn.addEventListener("click", async () => {
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       } else {
-        await document.documentElement.requestFullscreen();
+        // Keyboard Lock lets a fullscreen remote desktop receive Escape rather
+        // than having the browser immediately leave fullscreen. Browsers that
+        // do not support it simply fall back to their normal fullscreen mode.
+        await document.documentElement.requestFullscreen({ navigationUI: "hide", keyboardLock: "browser" });
+        await navigator.keyboard?.lock?.(["Escape"]);
       }
     } catch (error) {
       console.warn("Fullscreen request failed", error);
@@ -724,6 +737,7 @@ function attachViewerControlHandlers() {
     document.body.classList.toggle("remote-fullscreen", isFullscreen);
     fullscreenBtn.textContent = isFullscreen ? "Exit fullscreen" : "Fullscreen";
     remoteVideo.style.cursor = isFullscreen ? "none" : "";
+    if (!isFullscreen) navigator.keyboard?.unlock?.();
     if (isFullscreen && controlsHiddenUntilFullscreen) {
       controlsHiddenUntilFullscreen = false;
       showRemoteControls();
@@ -744,8 +758,9 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
-    // Let the Chromebook/browser handle its own fullscreen controls.
-    if (event.key === "F11" || (event.key === "Escape" && document.fullscreenElement)) {
+    // F11 remains the viewer's escape hatch. Escape is deliberately captured
+    // and forwarded to the host while DeskLink is fullscreen.
+    if (event.key === "F11") {
       return;
     }
     // Alt+Tab and the Windows/Command key are owned by the viewer computer.
@@ -775,7 +790,7 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
-    if (event.key === "F11" || (event.key === "Escape" && document.fullscreenElement)) {
+    if (event.key === "F11") {
       return;
     }
     if (event.key === "Alt" || event.key === "Meta" || event.key === "AltGraph") {
