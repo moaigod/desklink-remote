@@ -584,6 +584,83 @@ body.remote-fullscreen .remote-controls[hidden] {
   display: none !important;
 }
 
+.peer-keyboard-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  color: #fff8ec;
+  background: rgba(8, 5, 27, 0.92);
+  backdrop-filter: blur(16px);
+}
+
+.peer-keyboard-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.peer-keyboard-topline button {
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 10px;
+  padding: 8px 11px;
+  background: rgba(255, 130, 183, 0.26);
+  color: #fff8ec;
+  cursor: pointer;
+}
+
+.peer-keyboard-overlay p {
+  margin: 0;
+  color: #d6c9ef;
+}
+
+.peer-keyboard-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+}
+
+.peer-keyboard-row {
+  display: flex;
+  gap: 7px;
+  width: 100%;
+}
+
+.peer-key {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff8ec;
+  font: inherit;
+  font-size: clamp(0.7rem, 1.6vw, 1rem);
+  cursor: pointer;
+}
+
+.peer-key.wide { flex-grow: 1.6; }
+.peer-key.extra-wide { flex-grow: 4; }
+
+.peer-key.pressed {
+  transform: translateY(2px);
+  background: linear-gradient(135deg, #7cf5c6, #6ec8ff);
+  color: #10233b;
+  box-shadow: 0 0 18px rgba(124, 245, 198, 0.72);
+}
+
+@media (max-width: 620px) {
+  .peer-keyboard-overlay { padding: 12px; }
+  .peer-keyboard-keys { gap: 4px; }
+  .peer-key { min-height: 36px; }
+}
+
 @media (max-width: 920px) {
   .hero,
   .panel-grid {

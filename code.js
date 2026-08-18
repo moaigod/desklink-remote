@@ -14,6 +14,11 @@ const remoteControlsLocked = document.getElementById("remoteControlsLocked");
 const disconnectBtn = document.getElementById("disconnectBtn");
 const viewOnlyBtn = document.getElementById("viewOnlyBtn");
 const localCursorBtn = document.getElementById("localCursorBtn");
+const keyboardOverlayBtn = document.getElementById("keyboardOverlayBtn");
+const peerKeyboardOverlay = document.getElementById("peerKeyboardOverlay");
+const closeKeyboardOverlayBtn = document.getElementById("closeKeyboardOverlayBtn");
+const peerKeyboardKeys = document.getElementById("peerKeyboardKeys");
+const hostOskBtn = document.getElementById("hostOskBtn");
 const hideControlsBtn = document.getElementById("hideControlsBtn");
 const connectionStats = document.getElementById("connectionStats");
 const clientQualitySelect = document.getElementById("clientQualitySelect");
@@ -66,8 +71,86 @@ let viewOnlyMode = false;
 let showLocalCursor = false;
 let controlsHiddenUntilFullscreen = false;
 let connectionStatsTimer = null;
+let keyboardOverlayEnabled = false;
+let hostOskMode = false;
 
 const viewerInputTypes = new Set(["mouse-move", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
+
+const peerKeyboardLayout = [
+  ["Escape", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Backspace"],
+  ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace"],
+  ["Tab", "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\", "Enter"],
+  ["CapsLock", "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", "Enter"],
+  ["Shift", "z", "x", "c", "v", "b", "n", "m", ",", ".", "/", "Shift"],
+  ["Control", "Meta", "Alt", " ", "Alt", "ArrowLeft", "ArrowDown", "ArrowUp", "ArrowRight"],
+];
+
+function peerKeyboardLabel(key) {
+  const labels = { " ": "Space", ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓", Control: "Ctrl", CapsLock: "Caps", Backspace: "Backspace" };
+  return labels[key] || key;
+}
+
+function getPeerKeyboardButtons(key) {
+  if (!peerKeyboardKeys) return [];
+  return [...peerKeyboardKeys.querySelectorAll(".peer-key")].filter((button) => button.dataset.key === key);
+}
+
+function showPeerKeyboardKey(key, pressed) {
+  getPeerKeyboardButtons(key).forEach((button) => button.classList.toggle("pressed", pressed));
+}
+
+function clearPeerKeyboardKeys() {
+  peerKeyboardKeys?.querySelectorAll(".peer-key.pressed").forEach((button) => button.classList.remove("pressed"));
+}
+
+function sendPeerKeyboardButton(key) {
+  // Keep local Alt/Meta protected. A browser may not send their key-up event,
+  // which can leave the host stuck in an Alt shortcut.
+  if (key === "Alt" || key === "Meta") {
+    viewerMessage.textContent = "Use the Alt+Tab on host button for that shortcut.";
+    return;
+  }
+  showPeerKeyboardKey(key, true);
+  window.setTimeout(() => showPeerKeyboardKey(key, false), 110);
+  if (key.length === 1) {
+    sendControlMessage({ type: "text", payload: { text: key } });
+    return;
+  }
+  sendControlMessage({ type: "key-down", payload: { key, code: key } });
+  sendControlMessage({ type: "key-up", payload: { key, code: key } });
+}
+
+function buildPeerKeyboard() {
+  if (!peerKeyboardKeys || peerKeyboardKeys.childElementCount) return;
+  peerKeyboardLayout.forEach((row) => {
+    const rowElement = document.createElement("div");
+    rowElement.className = "peer-keyboard-row";
+    row.forEach((key) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "peer-key";
+      button.dataset.key = key;
+      button.textContent = peerKeyboardLabel(key);
+      if (["Tab", "CapsLock", "Shift", "Control", "Meta", "Alt", "Enter", "Backspace"].includes(key)) button.classList.add("wide");
+      if (key === " ") button.classList.add("extra-wide");
+      button.addEventListener("click", () => sendPeerKeyboardButton(key));
+      rowElement.append(button);
+    });
+    peerKeyboardKeys.append(rowElement);
+  });
+}
+
+function setKeyboardOverlayEnabled(enabled) {
+  keyboardOverlayEnabled = enabled;
+  if (enabled) buildPeerKeyboard();
+  if (peerKeyboardOverlay) peerKeyboardOverlay.hidden = !enabled;
+  keyboardOverlayBtn?.setAttribute("aria-pressed", String(enabled));
+  if (keyboardOverlayBtn) keyboardOverlayBtn.textContent = `On-screen keyboard: ${enabled ? "on" : "off"}`;
+  if (!enabled) clearPeerKeyboardKeys();
+  viewerMessage.textContent = enabled
+    ? "On-screen keyboard is showing your keys and forwarding them to the host."
+    : "On-screen keyboard is off. Direct keyboard control is active.";
+}
 
 function clampRemoteControlsPosition(left, top) {
   if (!remoteControls) return { left, top };
@@ -578,6 +661,24 @@ function attachViewerControlHandlers() {
     localCursorBtn.textContent = `Show local cursor: ${showLocalCursor ? "on" : "off"}`;
   });
 
+  keyboardOverlayBtn?.addEventListener("click", () => {
+    setKeyboardOverlayEnabled(!keyboardOverlayEnabled);
+  });
+
+  closeKeyboardOverlayBtn?.addEventListener("click", () => {
+    setKeyboardOverlayEnabled(false);
+  });
+
+  hostOskBtn?.addEventListener("click", () => {
+    hostOskMode = !hostOskMode;
+    hostOskBtn.setAttribute("aria-pressed", String(hostOskMode));
+    hostOskBtn.textContent = `Host OSK mode: ${hostOskMode ? "on" : "off"}`;
+    sendControlMessage({ type: "set-osk-mode", payload: { enabled: hostOskMode } });
+    viewerMessage.textContent = hostOskMode
+      ? "Experimental mode: opening Windows On-Screen Keyboard on the host."
+      : "Host OSK mode is off. Using regular remote keyboard input.";
+  });
+
   hideControlsBtn?.addEventListener("click", () => {
     controlsHiddenUntilFullscreen = true;
     remoteControls.hidden = true;
@@ -607,6 +708,7 @@ function attachViewerControlHandlers() {
 
   const releaseRemoteInput = () => {
     if (connected && role === "viewer") sendControlMessage({ type: "release-input" });
+    clearPeerKeyboardKeys();
   };
   window.addEventListener("blur", releaseRemoteInput);
   window.addEventListener("pagehide", releaseRemoteInput);
@@ -635,6 +737,7 @@ function attachViewerControlHandlers() {
     }
     event.preventDefault();
     event.stopPropagation();
+    if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, true);
     if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       sendControlMessage({ type: "text", payload: { text: event.key } });
     } else {
@@ -654,6 +757,7 @@ function attachViewerControlHandlers() {
     }
     event.preventDefault();
     event.stopPropagation();
+    if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, false);
     if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       return;
     }

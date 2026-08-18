@@ -31,6 +31,73 @@ $keyMap = @{
   AudioVolumeMute = 0xAD; AudioVolumeDown = 0xAE; AudioVolumeUp = 0xAF; MediaTrackNext = 0xB0; MediaTrackPrevious = 0xB1; MediaStop = 0xB2; MediaPlayPause = 0xB3
 }
 $targetBounds = $null
+$useOnScreenKeyboard = $false
+$oskAutomationAvailable = $false
+try {
+  Add-Type -AssemblyName UIAutomationClient
+  Add-Type -AssemblyName UIAutomationTypes
+  $oskAutomationAvailable = $true
+} catch {
+  [Console]::Error.WriteLine('DeskLink OSK mode: Windows UI Automation is unavailable.')
+}
+
+function Get-OskButtonNames($key) {
+  switch ($key) {
+    ' ' { return @('Space', 'SPACE') }
+    'Enter' { return @('Enter', 'ENTER') }
+    'Backspace' { return @('Backspace', 'BKSP') }
+    'Tab' { return @('Tab', 'TAB') }
+    'Escape' { return @('Esc', 'Escape') }
+    'CapsLock' { return @('Caps', 'Caps Lock') }
+    'Control' { return @('Ctrl', 'Control') }
+    'ArrowLeft' { return @('Left', 'Left Arrow') }
+    'ArrowRight' { return @('Right', 'Right Arrow') }
+    'ArrowUp' { return @('Up', 'Up Arrow') }
+    'ArrowDown' { return @('Down', 'Down Arrow') }
+    default { return @([string]$key, ([string]$key).ToUpperInvariant()) }
+  }
+}
+
+function Invoke-OskKey($key) {
+  if (-not $oskAutomationAvailable -or -not $key) { return $false }
+  $osk = Get-Process -Name osk -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $osk) {
+    Start-Process "$env:WINDIR\System32\osk.exe"
+    Start-Sleep -Milliseconds 500
+    $osk = Get-Process -Name osk -ErrorAction SilentlyContinue | Select-Object -First 1
+  }
+  if (-not $osk -or $osk.MainWindowHandle -eq [IntPtr]::Zero) {
+    [Console]::Error.WriteLine('DeskLink OSK mode: On-Screen Keyboard did not open.')
+    return $false
+  }
+  try {
+    $window = [System.Windows.Automation.AutomationElement]::FromHandle($osk.MainWindowHandle)
+    $condition = New-Object System.Windows.Automation.PropertyCondition(
+      [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+      [System.Windows.Automation.ControlType]::Button
+    )
+    $buttons = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    $wantedNames = Get-OskButtonNames ([string]$key)
+    $button = $null
+    foreach ($candidate in $buttons) {
+      if ($wantedNames -contains $candidate.Current.Name) {
+        $button = $candidate
+        break
+      }
+    }
+    if (-not $button) {
+      [Console]::Error.WriteLine("DeskLink OSK mode: no key button found for '$key'.")
+      return $false
+    }
+    $pattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+    ([System.Windows.Automation.InvokePattern]$pattern).Invoke()
+    return $true
+  } catch {
+    [Console]::Error.WriteLine("DeskLink OSK mode: could not press '$key': $($_.Exception.Message)")
+    return $false
+  }
+}
+
 function Get-VirtualKey($key) {
   if ($keyMap.ContainsKey($key)) { return [byte]$keyMap[$key] }
   if ($key -and $key.Length -eq 1) { return [byte]([DeskLinkInput]::VkKeyScan($key[0]) -band 0xFF) }
@@ -44,6 +111,16 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
     $payload = $message.payload
     if ($message.type -eq 'configure-display') {
       $targetBounds = @{ x = [int]$payload.x; y = [int]$payload.y; width = [int]$payload.width; height = [int]$payload.height }
+      continue
+    }
+    if ($message.type -eq 'set-osk-mode') {
+      $useOnScreenKeyboard = [bool]$payload.enabled
+      if ($useOnScreenKeyboard) {
+        Start-Process "$env:WINDIR\System32\osk.exe"
+        [Console]::Error.WriteLine('DeskLink OSK mode: enabled. Keyboard input will click Windows On-Screen Keyboard.')
+      } else {
+        [Console]::Error.WriteLine('DeskLink OSK mode: disabled. Keyboard input will use normal injection.')
+      }
       continue
     }
     if ($message.type -eq 'release-input') {
@@ -111,6 +188,13 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
             [DeskLinkInput]::mouse_event(0x0800, 0, 0, $wheelDelta, [UIntPtr]::Zero)
         }
       }
+    } elseif ($useOnScreenKeyboard -and $message.type -eq 'text') {
+      foreach ($character in [string]$payload.text) { Invoke-OskKey ([string]$character) | Out-Null }
+    } elseif ($useOnScreenKeyboard -and $message.type -eq 'key-down') {
+      Invoke-OskKey ([string]$payload.key) | Out-Null
+    } elseif ($useOnScreenKeyboard -and $message.type -eq 'key-up') {
+      # Windows On-Screen Keyboard buttons are clicked, not held. Ignore key-up.
+      continue
     } elseif ($message.type -eq 'text') {
       foreach ($character in [string]$payload.text) {
         $sent = [DeskLinkInput]::SendUnicode([char]$character)
