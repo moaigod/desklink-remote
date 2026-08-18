@@ -33,7 +33,6 @@ public partial class MainWindow : Window
         InitializeComponent();
         BuildKeyboard();
         _ = ListenForDeskLinkCommandsAsync(pipeCancellation.Token);
-        Deactivated += (_, _) => ReleaseAllKeys();
         Closed += (_, _) => { pipeCancellation.Cancel(); ReleaseAllKeys(); };
     }
 
