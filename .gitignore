@@ -2,6 +2,8 @@
 node_modules/
 dist/
 dist-developer/
+desklink-osk/src/**/bin/
+desklink-osk/src/**/obj/
 DeskLink-*-release.zip
 assets/embedded-exe-icon.png
 

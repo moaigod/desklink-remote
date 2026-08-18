@@ -18,6 +18,7 @@ build({
       'visual.css',
       'code.js',
       'assets/**',
+      'desklink-osk/releases/DeskLinkOSK-0.1.0/**',
       'package.json'
     ],
     win: {

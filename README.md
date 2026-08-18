@@ -4,6 +4,16 @@
 
 DeskLink is a small remote-desktop project with a Windows host app and a browser-only viewer. Run the host on the computer you want to share, then connect from a Chromebook or another browser—on the same Wi-Fi or from a different network.
 
+## Project folders
+
+- `electron-host/` — Windows Electron host-app source and its input helper.
+- `assets/` — DeskLink icons and logo files.
+- `releases/host/` — complete DeskLink release ZIPs.
+- `releases/viewer/` — the browser-only viewer ZIP.
+- `backups/source/` — source-code snapshots made before releases.
+- `desklink-osk/` — a separate experiment for a custom DeskLink on-screen keyboard.
+- `dist/` and `dist-developer/` — temporary build output; these stay out of Git.
+
 ## What it can do
 
 - Browser-only viewer: no viewer app install needed
@@ -81,7 +91,8 @@ The portable executable is created in `dist/`.
 The release package contains the Windows host app, `desklink-viewer.zip`, and this README:
 
 ```text
-DeskLink-1.0.0-release.zip
+releases/host/DeskLink-1.0.5.zip
+releases/viewer/desklink-viewer.zip
 ```
 
 Commit the source files and `assets/` folder to GitHub. Do not commit `dist/`, local certificates, `.env` files, TURN credentials, or release archives. Upload the release zip to GitHub Releases instead.

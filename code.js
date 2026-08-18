@@ -19,6 +19,7 @@ const peerKeyboardOverlay = document.getElementById("peerKeyboardOverlay");
 const closeKeyboardOverlayBtn = document.getElementById("closeKeyboardOverlayBtn");
 const peerKeyboardKeys = document.getElementById("peerKeyboardKeys");
 const hostOskBtn = document.getElementById("hostOskBtn");
+const desklinkOskBtn = document.getElementById("desklinkOskBtn");
 const hideControlsBtn = document.getElementById("hideControlsBtn");
 const connectionStats = document.getElementById("connectionStats");
 const clientQualitySelect = document.getElementById("clientQualitySelect");
@@ -73,6 +74,7 @@ let controlsHiddenUntilFullscreen = false;
 let connectionStatsTimer = null;
 let keyboardOverlayEnabled = false;
 let hostOskMode = false;
+let desklinkOskMode = false;
 
 const viewerInputTypes = new Set(["mouse-move", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
 
@@ -670,6 +672,12 @@ function attachViewerControlHandlers() {
   });
 
   hostOskBtn?.addEventListener("click", () => {
+    if (desklinkOskMode) {
+      desklinkOskMode = false;
+      desklinkOskBtn?.setAttribute("aria-pressed", "false");
+      if (desklinkOskBtn) desklinkOskBtn.textContent = "DeskLink OSK: off";
+      sendControlMessage({ type: "set-desklink-osk-mode", payload: { enabled: false } });
+    }
     hostOskMode = !hostOskMode;
     hostOskBtn.setAttribute("aria-pressed", String(hostOskMode));
     hostOskBtn.textContent = `Host OSK mode: ${hostOskMode ? "on" : "off"}`;
@@ -677,6 +685,22 @@ function attachViewerControlHandlers() {
     viewerMessage.textContent = hostOskMode
       ? "Experimental mode: opening Windows On-Screen Keyboard on the host."
       : "Host OSK mode is off. Using regular remote keyboard input.";
+  });
+
+  desklinkOskBtn?.addEventListener("click", () => {
+    if (hostOskMode) {
+      hostOskMode = false;
+      hostOskBtn?.setAttribute("aria-pressed", "false");
+      if (hostOskBtn) hostOskBtn.textContent = "Host OSK mode: off";
+      sendControlMessage({ type: "set-osk-mode", payload: { enabled: false } });
+    }
+    desklinkOskMode = !desklinkOskMode;
+    desklinkOskBtn.setAttribute("aria-pressed", String(desklinkOskMode));
+    desklinkOskBtn.textContent = `DeskLink OSK: ${desklinkOskMode ? "on" : "off"}`;
+    sendControlMessage({ type: "set-desklink-osk-mode", payload: { enabled: desklinkOskMode } });
+    viewerMessage.textContent = desklinkOskMode
+      ? "Launching DeskLink OSK on the host."
+      : "DeskLink OSK mode is off. Using regular remote keyboard input.";
   });
 
   hideControlsBtn?.addEventListener("click", () => {
