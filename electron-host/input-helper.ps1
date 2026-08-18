@@ -85,6 +85,23 @@ function Invoke-DeskLinkOskKey($key) {
   }
 }
 
+function Send-DeskLinkOskCommand($type, $key) {
+  Get-DeskLinkOskWindow | Out-Null
+  try {
+    $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'DeskLinkOsk', [System.IO.Pipes.PipeDirection]::Out)
+    $pipe.Connect(500)
+    $writer = New-Object System.IO.StreamWriter($pipe)
+    $writer.AutoFlush = $true
+    $writer.WriteLine((@{ type = $type; key = $key } | ConvertTo-Json -Compress))
+    $writer.Dispose()
+    $pipe.Dispose()
+    return $true
+  } catch {
+    [Console]::Error.WriteLine("DeskLink OSK mode: pipe command failed: $($_.Exception.Message)")
+    return $false
+  }
+}
+
 function Get-OskKeyPoint($key) {
   $topRow = @('Escape', '`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=')
   $numberRow = @('Tab', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\\')
@@ -174,6 +191,7 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       continue
     }
     if ($message.type -eq 'release-input') {
+      if ($useDeskLinkOsk) { Send-DeskLinkOskCommand 'release-input' $null | Out-Null }
       # Browser focus can disappear before keyup. Never leave modifiers held.
       foreach ($key in @(0x10, 0x11, 0x12, 0x5B, 0x5C)) {
         [DeskLinkInput]::keybd_event($key, 0, 0x0002, [UIntPtr]::Zero)
@@ -239,11 +257,14 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
         }
       }
     } elseif ($useDeskLinkOsk -and $message.type -eq 'text') {
-      foreach ($character in [string]$payload.text) { Invoke-DeskLinkOskKey ([string]$character) | Out-Null }
+      foreach ($character in [string]$payload.text) {
+        Send-DeskLinkOskCommand 'key-down' ([string]$character) | Out-Null
+        Send-DeskLinkOskCommand 'key-up' ([string]$character) | Out-Null
+      }
     } elseif ($useDeskLinkOsk -and $message.type -eq 'key-down') {
-      Invoke-DeskLinkOskKey ([string]$payload.key) | Out-Null
+      Send-DeskLinkOskCommand 'key-down' ([string]$payload.key) | Out-Null
     } elseif ($useDeskLinkOsk -and $message.type -eq 'key-up') {
-      continue
+      Send-DeskLinkOskCommand 'key-up' ([string]$payload.key) | Out-Null
     } elseif ($useOnScreenKeyboard -and $message.type -eq 'text') {
       foreach ($character in [string]$payload.text) { Invoke-OskKey ([string]$character) | Out-Null }
     } elseif ($useOnScreenKeyboard -and $message.type -eq 'key-down') {

@@ -204,7 +204,7 @@ ipcMain.handle('get-connection-config', () => ({
 }));
 
 ipcMain.on('inject-input', (_event, message) => {
-  if (!message || !['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'mouse-scroll', 'key-down', 'key-up', 'text', 'release-input', 'host-alt-tab', 'set-osk-mode', 'set-desklink-osk-mode'].includes(message.type)) return;
+  if (!message || !['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'mouse-scroll', 'key-down', 'key-up', 'text', 'release-input', 'host-alt-tab', 'set-desklink-osk-mode'].includes(message.type)) return;
   sendToInputHelper(message);
 });
 

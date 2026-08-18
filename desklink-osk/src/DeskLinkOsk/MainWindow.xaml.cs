@@ -1,4 +1,7 @@
+using System.IO;
+using System.IO.Pipes;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -12,6 +15,7 @@ public partial class MainWindow : Window
     private const uint KeyUpFlag = 0x0002;
     private readonly HashSet<string> heldKeys = [];
     private readonly HashSet<string> pointerActivatedKeys = [];
+    private readonly CancellationTokenSource pipeCancellation = new();
     private sealed record KeySpec(string Label, string Key, double Width = 1);
 
     private static readonly KeySpec[][] Layout =
@@ -28,8 +32,9 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         BuildKeyboard();
+        _ = ListenForDeskLinkCommandsAsync(pipeCancellation.Token);
         Deactivated += (_, _) => ReleaseAllKeys();
-        Closed += (_, _) => ReleaseAllKeys();
+        Closed += (_, _) => { pipeCancellation.Cancel(); ReleaseAllKeys(); };
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -121,6 +126,33 @@ public partial class MainWindow : Window
     private void ReleaseAllKeys()
     {
         foreach (var key in heldKeys.ToArray()) ReleaseKey(key);
+    }
+
+    private async Task ListenForDeskLinkCommandsAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                using var pipe = new NamedPipeServerStream("DeskLinkOsk", PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                await pipe.WaitForConnectionAsync(cancellationToken);
+                using var reader = new StreamReader(pipe);
+                var line = await reader.ReadLineAsync(cancellationToken);
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                using var message = JsonDocument.Parse(line);
+                var root = message.RootElement;
+                var type = root.GetProperty("type").GetString();
+                var key = root.TryGetProperty("key", out var keyValue) ? keyValue.GetString() : null;
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    if (type == "release-input") ReleaseAllKeys();
+                    else if (!string.IsNullOrEmpty(key) && type == "key-down") PressKey(key);
+                    else if (!string.IsNullOrEmpty(key) && type == "key-up") ReleaseKey(key);
+                });
+            }
+            catch (OperationCanceledException) { break; }
+            catch (Exception error) { await Dispatcher.InvokeAsync(() => StatusText.Text = $"DeskLink pipe error: {error.Message}"); }
+        }
     }
 
     private static string DisplayKey(string key) => key == " " ? "Space" : key;

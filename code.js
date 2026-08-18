@@ -18,7 +18,6 @@ const keyboardOverlayBtn = document.getElementById("keyboardOverlayBtn");
 const peerKeyboardOverlay = document.getElementById("peerKeyboardOverlay");
 const closeKeyboardOverlayBtn = document.getElementById("closeKeyboardOverlayBtn");
 const peerKeyboardKeys = document.getElementById("peerKeyboardKeys");
-const hostOskBtn = document.getElementById("hostOskBtn");
 const desklinkOskBtn = document.getElementById("desklinkOskBtn");
 const hideControlsBtn = document.getElementById("hideControlsBtn");
 const connectionStats = document.getElementById("connectionStats");
@@ -73,7 +72,6 @@ let showLocalCursor = false;
 let controlsHiddenUntilFullscreen = false;
 let connectionStatsTimer = null;
 let keyboardOverlayEnabled = false;
-let hostOskMode = false;
 let desklinkOskMode = false;
 
 const viewerInputTypes = new Set(["mouse-move", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
@@ -671,29 +669,7 @@ function attachViewerControlHandlers() {
     setKeyboardOverlayEnabled(false);
   });
 
-  hostOskBtn?.addEventListener("click", () => {
-    if (desklinkOskMode) {
-      desklinkOskMode = false;
-      desklinkOskBtn?.setAttribute("aria-pressed", "false");
-      if (desklinkOskBtn) desklinkOskBtn.textContent = "DeskLink OSK: off";
-      sendControlMessage({ type: "set-desklink-osk-mode", payload: { enabled: false } });
-    }
-    hostOskMode = !hostOskMode;
-    hostOskBtn.setAttribute("aria-pressed", String(hostOskMode));
-    hostOskBtn.textContent = `Host OSK mode: ${hostOskMode ? "on" : "off"}`;
-    sendControlMessage({ type: "set-osk-mode", payload: { enabled: hostOskMode } });
-    viewerMessage.textContent = hostOskMode
-      ? "Experimental mode: opening Windows On-Screen Keyboard on the host."
-      : "Host OSK mode is off. Using regular remote keyboard input.";
-  });
-
   desklinkOskBtn?.addEventListener("click", () => {
-    if (hostOskMode) {
-      hostOskMode = false;
-      hostOskBtn?.setAttribute("aria-pressed", "false");
-      if (hostOskBtn) hostOskBtn.textContent = "Host OSK mode: off";
-      sendControlMessage({ type: "set-osk-mode", payload: { enabled: false } });
-    }
     desklinkOskMode = !desklinkOskMode;
     desklinkOskBtn.setAttribute("aria-pressed", String(desklinkOskMode));
     desklinkOskBtn.textContent = `DeskLink OSK: ${desklinkOskMode ? "on" : "off"}`;
@@ -762,7 +738,9 @@ function attachViewerControlHandlers() {
     event.preventDefault();
     event.stopPropagation();
     if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, true);
-    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (desklinkOskMode) {
+      sendControlMessage({ type: "key-down", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
+    } else if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       sendControlMessage({ type: "text", payload: { text: event.key } });
     } else {
       sendControlMessage({ type: "key-down", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
@@ -782,7 +760,7 @@ function attachViewerControlHandlers() {
     event.preventDefault();
     event.stopPropagation();
     if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, false);
-    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (!desklinkOskMode && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       return;
     }
     sendControlMessage({ type: "key-up", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
