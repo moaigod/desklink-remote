@@ -18,7 +18,6 @@ const keyboardOverlayBtn = document.getElementById("keyboardOverlayBtn");
 const peerKeyboardOverlay = document.getElementById("peerKeyboardOverlay");
 const closeKeyboardOverlayBtn = document.getElementById("closeKeyboardOverlayBtn");
 const peerKeyboardKeys = document.getElementById("peerKeyboardKeys");
-const desklinkOskBtn = document.getElementById("desklinkOskBtn");
 const hideControlsBtn = document.getElementById("hideControlsBtn");
 const connectionStats = document.getElementById("connectionStats");
 const clientQualitySelect = document.getElementById("clientQualitySelect");
@@ -72,7 +71,6 @@ let showLocalCursor = false;
 let controlsHiddenUntilFullscreen = false;
 let connectionStatsTimer = null;
 let keyboardOverlayEnabled = false;
-let desklinkOskMode = false;
 
 const viewerInputTypes = new Set(["mouse-move", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
 
@@ -669,16 +667,6 @@ function attachViewerControlHandlers() {
     setKeyboardOverlayEnabled(false);
   });
 
-  desklinkOskBtn?.addEventListener("click", () => {
-    desklinkOskMode = !desklinkOskMode;
-    desklinkOskBtn.setAttribute("aria-pressed", String(desklinkOskMode));
-    desklinkOskBtn.textContent = `DeskLink OSK: ${desklinkOskMode ? "on" : "off"}`;
-    sendControlMessage({ type: "set-desklink-osk-mode", payload: { enabled: desklinkOskMode } });
-    viewerMessage.textContent = desklinkOskMode
-      ? "Launching DeskLink OSK on the host."
-      : "DeskLink OSK mode is off. Using regular remote keyboard input.";
-  });
-
   hideControlsBtn?.addEventListener("click", () => {
     controlsHiddenUntilFullscreen = true;
     remoteControls.hidden = true;
@@ -738,9 +726,7 @@ function attachViewerControlHandlers() {
     event.preventDefault();
     event.stopPropagation();
     if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, true);
-    if (desklinkOskMode) {
-      sendControlMessage({ type: "key-down", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
-    } else if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       sendControlMessage({ type: "text", payload: { text: event.key } });
     } else {
       sendControlMessage({ type: "key-down", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
@@ -760,7 +746,7 @@ function attachViewerControlHandlers() {
     event.preventDefault();
     event.stopPropagation();
     if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, false);
-    if (!desklinkOskMode && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       return;
     }
     sendControlMessage({ type: "key-up", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
