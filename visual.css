@@ -598,6 +598,10 @@ body.remote-fullscreen .remote-controls[hidden] {
   backdrop-filter: blur(16px);
 }
 
+.peer-keyboard-overlay[hidden] {
+  display: none !important;
+}
+
 .peer-keyboard-topline {
   display: flex;
   justify-content: space-between;
