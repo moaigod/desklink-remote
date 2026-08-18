@@ -412,25 +412,6 @@ body.remote-fullscreen {
   background: #000;
 }
 
-/* Fullscreen remote play should never show the viewer computer's pointer,
-   including over the movable controls or any transparent gaps around video. */
-body.remote-fullscreen,
-body.remote-fullscreen * {
-  cursor: none !important;
-}
-
-/* The remote surface stays cursorless, but settings must remain easy to use. */
-body.remote-fullscreen .remote-controls,
-body.remote-fullscreen .remote-controls * {
-  cursor: default !important;
-}
-
-body.remote-fullscreen .remote-controls button,
-body.remote-fullscreen .remote-controls input,
-body.remote-fullscreen .remote-controls select {
-  cursor: pointer !important;
-}
-
 body.remote-fullscreen .app-shell,
 body.remote-fullscreen main,
 body.remote-fullscreen .panel-grid,
@@ -464,15 +445,10 @@ body.remote-fullscreen #remoteVideo {
   margin: 0;
   border: 0;
   border-radius: 0;
-  cursor: none;
 }
 
-body.show-local-cursor:not(.remote-fullscreen) #remoteVideo {
+body.show-local-cursor #remoteVideo {
   cursor: crosshair !important;
-}
-
-:fullscreen #remoteVideo {
-  cursor: none !important;
 }
 
 .remote-controls {

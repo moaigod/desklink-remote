@@ -521,15 +521,6 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
-    // Pointer Lock gives games relative movement instead of repeatedly
-    // repositioning the host cursor. That avoids fighting games which recenter
-    // their cursor every frame for camera control.
-    if (document.pointerLockElement === remoteVideo) {
-      const dx = Math.round(event.movementX || 0);
-      const dy = Math.round(event.movementY || 0);
-      if (dx || dy) sendControlMessage({ type: "mouse-relative", payload: { dx, dy } });
-      return;
-    }
     const position = getVideoPosition(event);
     if (!position) return;
     const { x, y } = position;
@@ -544,14 +535,6 @@ function attachViewerControlHandlers() {
     if (!position) return;
     const { x, y } = position;
     event.preventDefault();
-    if (document.fullscreenElement && document.pointerLockElement !== remoteVideo) {
-      try {
-        const lockResult = remoteVideo.requestPointerLock?.({ unadjustedMovement: true });
-        lockResult?.catch?.(() => remoteVideo.requestPointerLock?.());
-      } catch {
-        remoteVideo.requestPointerLock?.();
-      }
-    }
     remoteVideo.setPointerCapture?.(event.pointerId);
     sendControlMessage({ type: "mouse-down", payload: { x, y, button: event.button } });
   });
@@ -753,7 +736,6 @@ function attachViewerControlHandlers() {
     const isFullscreen = Boolean(document.fullscreenElement);
     document.body.classList.toggle("remote-fullscreen", isFullscreen);
     fullscreenBtn.textContent = isFullscreen ? "Exit fullscreen" : "Fullscreen";
-    remoteVideo.style.cursor = isFullscreen ? "none" : "";
     if (!isFullscreen) navigator.keyboard?.unlock?.();
     if (isFullscreen && controlsHiddenUntilFullscreen) {
       controlsHiddenUntilFullscreen = false;
