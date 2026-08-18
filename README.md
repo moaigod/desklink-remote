@@ -1,6 +1,6 @@
 # DeskLink
 
-![DeskLink logo](assets/desklink-logo.png)
+![DeskLink cosmic logo](assets/desklink-cosmic-logo.png)
 
 DeskLink is a small remote-desktop project with a Windows host app and a browser-only viewer. Run the host on the computer you want to share, then connect from a Chromebook or another browser—on the same Wi-Fi or from a different network.
 
@@ -23,6 +23,17 @@ DeskLink is a small remote-desktop project with a Windows host app and a browser
 - Recent-computer list on each viewer browser (passwords are not saved)
 - Smooth, Balanced, and Crisp stream-quality modes
 - Background hosting through the Windows tray and launch-at-sign-in support
+- Optional virtual Xbox controller support through ViGEmBus
+- Optional game-keyboard path through Interception (installed separately)
+
+## Credits and optional input projects
+
+DeskLink is an independent personal remote-desktop project. Its optional game-input features are possible because of these community projects:
+
+- [ViGEmBus by Nefarius](https://github.com/nefarius/ViGEmBus) provides the virtual Xbox controller used when a viewer sends controller input. ViGEmBus is retired/archived, but its production-signed installer remains the supported way to install that optional driver. ViGEmBus is licensed under BSD-3-Clause.
+- [Interception by Francisco Lopes (oblitum)](https://github.com/oblitum/Interception) provides the optional low-level keyboard bridge used by DeskLink's **Game keyboard driver** setting. The driver is installed separately by the computer owner. DeskLink includes only the official user-mode API library, under Interception's non-commercial LGPL-3.0 terms; see `electron-host/interception-bridge/` for its included license and notice.
+
+DeskLink is not affiliated with, endorsed by, or supported by Nefarius, ViGEmBus, Francisco Lopes, or Interception. Please support the people and projects whose work made these optional features possible.
 
 ## Use DeskLink
 
@@ -91,7 +102,7 @@ The portable executable is created in `dist/`.
 The release package contains the Windows host app, `desklink-viewer.zip`, and this README:
 
 ```text
-releases/host/DeskLink-1.0.5.zip
+releases/host/DeskLink-1.1.0.zip
 releases/viewer/desklink-viewer.zip
 ```
 
@@ -99,4 +110,4 @@ Commit the source files and `assets/` folder to GitHub. Do not commit `dist/`, l
 
 ## Current limits
 
-DeskLink sends standard Windows mouse and keyboard input. Some games and anti-cheat systems intentionally reject software-generated input, so game compatibility is not guaranteed. Virtual controller/keyboard drivers are not included.
+DeskLink's standard Windows mouse and keyboard path is meant for normal desktop programs. Some games and anti-cheat systems intentionally reject software-generated input, so game compatibility is not guaranteed. The optional ViGEmBus controller and Interception keyboard paths can improve compatibility in some games, but they are separate, opt-in components and DeskLink does not attempt to bypass an anti-cheat or any game restriction.
