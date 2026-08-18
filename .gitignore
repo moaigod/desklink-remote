@@ -2,7 +2,7 @@
 node_modules/
 dist/
 dist-developer/
-backups/full/
+backups/
 releases/host/
 desklink-osk/src/**/bin/
 desklink-osk/src/**/obj/
