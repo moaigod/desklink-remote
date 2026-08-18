@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DeskLink — actual browser-based remote access</title>
+    <title>DeskLink | desktop across the stars</title>
     <link rel="stylesheet" href="visual.css" />
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand">
-          <img class="brand-logo" src="assets/desklink-logo.png" alt="DeskLink linked screens logo" />
+          <img class="brand-logo" src="assets/desklink-cosmic-logo.png" alt="DeskLink orbiting stars logo" />
           <span>DeskLink</span>
         </div>
         <p class="topbar-note">your tiny long-distance desktop portal ✦</p>
@@ -20,9 +20,9 @@
         <section class="hero">
           <div class="hero-copy">
             <p class="eyebrow">✦ browser portal online ✦</p>
-            <h1>Your desktop, beamed to wherever you are.</h1>
+            <h1>Your desktop, anywhere in the galaxy.</h1>
             <p class="hero-text">
-              No viewer app, no weird install ritual. Pop in the room code and hang out with your other computer.
+              Find your host, open a stable little wormhole, and bring your whole screen along for the trip.
             </p>
             <ul class="hero-badges">
               <li>Chromebook friendly</li>
@@ -48,8 +48,8 @@
         <section class="panel-grid">
           <article class="panel-card">
             <div class="panel-heading">
-              <h2>Hop into a desktop</h2>
-              <p>New computer? Use its ID. Returning? Pick it below.</p>
+              <h2>Set a course</h2>
+              <p>New computer? Enter its coordinates. Returning? Pick it from your star map.</p>
             </div>
 
             <div class="button-row compact">
@@ -93,11 +93,11 @@
         </section>
 
         <section class="info-card">
-          <h2>How to use it</h2>
+          <h2>How the wormhole works</h2>
           <ol>
             <li>Run the project locally with the server in this folder.</li>
             <li>Open the page on your Chromebook or viewer device.</li>
-            <li>Enter the room code from the host and click Join.</li>
+            <li>Enter the computer ID and password from the host, then click Join.</li>
             <li>The remote screen should appear in the browser.</li>
           </ol>
         </section>
@@ -116,6 +116,7 @@
         <button id="localCursorBtn" class="remote-controls-action" type="button" aria-pressed="false">Show local cursor: off</button>
         <button id="keyboardOverlayBtn" class="remote-controls-action" type="button" aria-pressed="false">On-screen keyboard: off</button>
         <button id="desklinkOskBtn" class="remote-controls-action" type="button" aria-pressed="false">DeskLink OSK: off</button>
+        <button id="interceptionKeyboardBtn" class="remote-controls-action" type="button" aria-pressed="false">Game keyboard driver: off</button>
         <label class="remote-controls-quality">
           Stream quality
           <select id="clientQualitySelect">

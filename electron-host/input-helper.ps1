@@ -46,6 +46,14 @@ public static class DeskLinkViGEm {
   [DllImport("vigemclient.dll", CallingConvention=CallingConvention.Cdecl)] public static extern void vigem_target_remove(IntPtr client, IntPtr target);
   [DllImport("vigemclient.dll", CallingConvention=CallingConvention.Cdecl)] public static extern uint vigem_target_x360_update(IntPtr client, IntPtr target, ref XUSB_REPORT report);
 }
+
+public static class DeskLinkInterception {
+  [StructLayout(LayoutKind.Sequential)] public struct KeyStroke { public ushort code; public ushort state; public ushort information; }
+  [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern IntPtr interception_create_context();
+  [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern void interception_destroy_context(IntPtr context);
+  [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern int interception_is_keyboard(int device);
+  [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern int interception_send(IntPtr context, int device, ref KeyStroke stroke, uint count);
+}
 '@
 
 $keyMap = @{
@@ -59,6 +67,10 @@ $keyMap = @{
 }
 $targetBounds = $null
 $useDeskLinkOsk = $false
+$useInterceptionKeyboard = $false
+$interceptionContext = [IntPtr]::Zero
+$interceptionUnavailable = $false
+$interceptionHeld = @{}
 $viGemBridgeLoaded = $false
 $viGemUnavailable = $false
 
@@ -97,6 +109,59 @@ function Update-ViGEmController($controller) {
   [single[]]$axes = @($controller.axes | ForEach-Object { [single]$_ })
   $result = [DeskLink.ViGEm.ViGEmBridge]::Update($pressed, $values, $axes)
   if ($result -ne 'ready') { [Console]::Error.WriteLine("ViGEm controller support failed: $result") }
+}
+
+$interceptionScanCodes = @{
+  Escape=0x01; Digit1=0x02; Digit2=0x03; Digit3=0x04; Digit4=0x05; Digit5=0x06; Digit6=0x07; Digit7=0x08; Digit8=0x09; Digit9=0x0A; Digit0=0x0B; Minus=0x0C; Equal=0x0D; Backspace=0x0E; Tab=0x0F
+  KeyQ=0x10; KeyW=0x11; KeyE=0x12; KeyR=0x13; KeyT=0x14; KeyY=0x15; KeyU=0x16; KeyI=0x17; KeyO=0x18; KeyP=0x19; BracketLeft=0x1A; BracketRight=0x1B; Enter=0x1C
+  ControlLeft=0x1D; KeyA=0x1E; KeyS=0x1F; KeyD=0x20; KeyF=0x21; KeyG=0x22; KeyH=0x23; KeyJ=0x24; KeyK=0x25; KeyL=0x26; Semicolon=0x27; Quote=0x28; Backquote=0x29
+  ShiftLeft=0x2A; Backslash=0x2B; KeyZ=0x2C; KeyX=0x2D; KeyC=0x2E; KeyV=0x2F; KeyB=0x30; KeyN=0x31; KeyM=0x32; Comma=0x33; Period=0x34; Slash=0x35; ShiftRight=0x36; NumpadMultiply=0x37; AltLeft=0x38; Space=0x39; CapsLock=0x3A
+  F1=0x3B; F2=0x3C; F3=0x3D; F4=0x3E; F5=0x3F; F6=0x40; F7=0x41; F8=0x42; F9=0x43; F10=0x44; NumLock=0x45; ScrollLock=0x46
+  Numpad7=0x47; Numpad8=0x48; Numpad9=0x49; NumpadSubtract=0x4A; Numpad4=0x4B; Numpad5=0x4C; Numpad6=0x4D; NumpadAdd=0x4E; Numpad1=0x4F; Numpad2=0x50; Numpad3=0x51; Numpad0=0x52; NumpadDecimal=0x53; F11=0x57; F12=0x58
+  NumpadEnter=0x1C; ControlRight=0x1D; NumpadDivide=0x35; AltRight=0x38; Home=0x47; ArrowUp=0x48; PageUp=0x49; ArrowLeft=0x4B; ArrowRight=0x4D; End=0x4F; ArrowDown=0x50; PageDown=0x51; Insert=0x52; Delete=0x53; MetaLeft=0x5B; MetaRight=0x5C; ContextMenu=0x5D
+}
+$interceptionExtendedCodes = @('NumpadEnter','ControlRight','NumpadDivide','AltRight','Home','ArrowUp','PageUp','ArrowLeft','ArrowRight','End','ArrowDown','PageDown','Insert','Delete','MetaLeft','MetaRight','ContextMenu')
+
+function Stop-InterceptionKeyboard {
+  if ($interceptionContext -ne [IntPtr]::Zero) {
+    foreach ($held in @($interceptionHeld.Values)) {
+      $stroke = New-Object DeskLinkInterception+KeyStroke
+      $stroke.code = [uint16]$held.code; $stroke.state = [uint16]($held.state -bor 0x01)
+      try { [DeskLinkInterception]::interception_send($interceptionContext, 3, [ref]$stroke, 1) | Out-Null } catch { }
+    }
+    try { [DeskLinkInterception]::interception_destroy_context($interceptionContext) } catch { }
+  }
+  $script:interceptionContext = [IntPtr]::Zero
+  $script:interceptionHeld = @{}
+}
+
+function Start-InterceptionKeyboard {
+  if ($interceptionContext -ne [IntPtr]::Zero) { return $true }
+  if ($interceptionUnavailable) { return $false }
+  $libraryPath = Join-Path $PSScriptRoot 'interception-bridge\interception.dll'
+  if (-not (Test-Path -LiteralPath $libraryPath)) { [Console]::Error.WriteLine('Interception keyboard bridge is missing from DeskLink.'); $script:interceptionUnavailable = $true; return $false }
+  [DeskLinkInput]::SetDllDirectory((Split-Path -Parent $libraryPath)) | Out-Null
+  try {
+    $script:interceptionContext = [DeskLinkInterception]::interception_create_context()
+    if ($interceptionContext -eq [IntPtr]::Zero) { throw 'Could not create an Interception context.' }
+    if (-not [DeskLinkInterception]::interception_is_keyboard(3)) { throw 'Interception keyboard device 3 is no longer available. Use Parsec once, then restart DeskLink.' }
+    [Console]::Error.WriteLine('Interception game keyboard bridge connected to device 3.')
+    return $true
+  } catch { [Console]::Error.WriteLine("Interception keyboard bridge failed: $($_.Exception.Message)"); Stop-InterceptionKeyboard; $script:interceptionUnavailable = $true; return $false }
+}
+
+function Send-InterceptionKey($payload, $isUp) {
+  if (-not (Start-InterceptionKeyboard)) { return $false }
+  $codeName = [string]$payload.code
+  if (-not $interceptionScanCodes.ContainsKey($codeName)) { [Console]::Error.WriteLine("Interception does not map '$codeName'."); return $false }
+  $state = if ($interceptionExtendedCodes -contains $codeName) { 0x02 } else { 0x00 }
+  if ($isUp) { $state = $state -bor 0x01 }
+  $stroke = New-Object DeskLinkInterception+KeyStroke
+  $stroke.code = [uint16]$interceptionScanCodes[$codeName]; $stroke.state = [uint16]$state
+  $sent = [DeskLinkInterception]::interception_send($interceptionContext, 3, [ref]$stroke, 1)
+  if ($sent -ne 1) { [Console]::Error.WriteLine('Interception could not send the key.'); return $false }
+  if ($isUp) { $script:interceptionHeld.Remove($codeName) } else { $script:interceptionHeld[$codeName] = @{ code = $stroke.code; state = ($state -band 0xFE) } }
+  return $true
 }
 
 function Get-OskKeyPoint($key) {
@@ -172,8 +237,15 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       [Console]::Error.WriteLine("DeskLink OSK input mode: $useDeskLinkOsk")
       continue
     }
+    if ($message.type -eq 'set-interception-keyboard-mode') {
+      $useInterceptionKeyboard = [bool]$payload.enabled
+      if (-not $useInterceptionKeyboard) { Stop-InterceptionKeyboard }
+      [Console]::Error.WriteLine("Interception game keyboard mode: $useInterceptionKeyboard")
+      continue
+    }
     if ($message.type -eq 'release-input') {
       Stop-ViGEmController
+      Stop-InterceptionKeyboard
       # Browser focus can disappear before keyup. Never leave modifiers held.
       foreach ($key in @(0x10, 0x11, 0x12, 0x5B, 0x5C)) {
         [DeskLinkInput]::keybd_event($key, 0, 0x0002, [UIntPtr]::Zero)
@@ -253,6 +325,12 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
     } elseif ($useDeskLinkOsk -and $message.type -eq 'key-up') {
       $vk = Get-VirtualKey $payload.key
       if ($null -ne $vk) { [DeskLinkInput]::keybd_event($vk, 0, 0x0002, [UIntPtr]::Zero) }
+      continue
+    } elseif ($useInterceptionKeyboard -and $message.type -eq 'key-down') {
+      Send-InterceptionKey $payload $false | Out-Null
+      continue
+    } elseif ($useInterceptionKeyboard -and $message.type -eq 'key-up') {
+      Send-InterceptionKey $payload $true | Out-Null
       continue
     } elseif ($message.type -eq 'text') {
       foreach ($character in [string]$payload.text) {

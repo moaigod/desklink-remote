@@ -19,6 +19,7 @@ const peerKeyboardOverlay = document.getElementById("peerKeyboardOverlay");
 const closeKeyboardOverlayBtn = document.getElementById("closeKeyboardOverlayBtn");
 const peerKeyboardKeys = document.getElementById("peerKeyboardKeys");
 const desklinkOskBtn = document.getElementById("desklinkOskBtn");
+const interceptionKeyboardBtn = document.getElementById("interceptionKeyboardBtn");
 const hideControlsBtn = document.getElementById("hideControlsBtn");
 const connectionStats = document.getElementById("connectionStats");
 const clientQualitySelect = document.getElementById("clientQualitySelect");
@@ -73,6 +74,7 @@ let controlsHiddenUntilFullscreen = false;
 let connectionStatsTimer = null;
 let keyboardOverlayEnabled = false;
 let desklinkOskMode = false;
+let interceptionKeyboardMode = false;
 
 const viewerInputTypes = new Set(["mouse-move", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
 
@@ -670,6 +672,12 @@ function attachViewerControlHandlers() {
   });
 
   desklinkOskBtn?.addEventListener("click", () => {
+    if (interceptionKeyboardMode) {
+      interceptionKeyboardMode = false;
+      interceptionKeyboardBtn?.setAttribute("aria-pressed", "false");
+      if (interceptionKeyboardBtn) interceptionKeyboardBtn.textContent = "Game keyboard driver: off";
+      sendControlMessage({ type: "set-interception-keyboard-mode", payload: { enabled: false } });
+    }
     desklinkOskMode = !desklinkOskMode;
     desklinkOskBtn.setAttribute("aria-pressed", String(desklinkOskMode));
     desklinkOskBtn.textContent = `DeskLink OSK: ${desklinkOskMode ? "on" : "off"}`;
@@ -677,6 +685,22 @@ function attachViewerControlHandlers() {
     viewerMessage.textContent = desklinkOskMode
       ? "DeskLink OSK input mode is on. Turn on On-screen keyboard separately if you want visual key feedback."
       : "DeskLink OSK input mode is off. Using normal remote keyboard input.";
+  });
+
+  interceptionKeyboardBtn?.addEventListener("click", () => {
+    interceptionKeyboardMode = !interceptionKeyboardMode;
+    if (interceptionKeyboardMode && desklinkOskMode) {
+      desklinkOskMode = false;
+      desklinkOskBtn?.setAttribute("aria-pressed", "false");
+      if (desklinkOskBtn) desklinkOskBtn.textContent = "DeskLink OSK: off";
+      sendControlMessage({ type: "set-desklink-osk-mode", payload: { enabled: false } });
+    }
+    interceptionKeyboardBtn.setAttribute("aria-pressed", String(interceptionKeyboardMode));
+    interceptionKeyboardBtn.textContent = `Game keyboard driver: ${interceptionKeyboardMode ? "on" : "off"}`;
+    sendControlMessage({ type: "set-interception-keyboard-mode", payload: { enabled: interceptionKeyboardMode } });
+    viewerMessage.textContent = interceptionKeyboardMode
+      ? "Experimental game keyboard driver is on. Turn it off if a game or your keyboard behaves strangely."
+      : "Game keyboard driver is off. Using normal remote keyboard input.";
   });
 
   hideControlsBtn?.addEventListener("click", () => {
@@ -738,7 +762,7 @@ function attachViewerControlHandlers() {
     event.preventDefault();
     event.stopPropagation();
     if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, true);
-    if (desklinkOskMode) {
+    if (desklinkOskMode || interceptionKeyboardMode) {
       sendControlMessage({ type: "key-down", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
     } else if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       sendControlMessage({ type: "text", payload: { text: event.key } });
@@ -760,7 +784,7 @@ function attachViewerControlHandlers() {
     event.preventDefault();
     event.stopPropagation();
     if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, false);
-    if (!desklinkOskMode && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (!desklinkOskMode && !interceptionKeyboardMode && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       return;
     }
     sendControlMessage({ type: "key-up", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });

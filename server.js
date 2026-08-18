@@ -271,7 +271,7 @@ wss.on('connection', (ws) => {
       // Fallback for networks where TURN relays media but SCTP data channels
       // cannot be established. Only an already passcode-authorized viewer may
       // send a small, known input message to its host.
-      const allowedControlTypes = new Set(['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'mouse-scroll', 'key-down', 'key-up', 'text', 'release-input', 'host-alt-tab', 'set-stream-quality', 'set-desklink-osk-mode', 'gamepad-state']);
+      const allowedControlTypes = new Set(['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'mouse-scroll', 'key-down', 'key-up', 'text', 'release-input', 'host-alt-tab', 'set-stream-quality', 'set-desklink-osk-mode', 'set-interception-keyboard-mode', 'gamepad-state']);
       if (type === 'control' && ws.role === 'viewer' && ws.roomId === roomId && payload && allowedControlTypes.has(payload.type)) {
         const encoded = JSON.stringify(payload);
         if (encoded.length <= 8192 && room.host && room.host.readyState === 1) {

@@ -23,7 +23,7 @@ build({
     ],
     win: {
       target: ['portable'],
-      icon: 'assets/desklink.ico'
+      icon: 'assets/desklink-cosmic.ico'
     }
   }
 }).then(() => {
