@@ -76,7 +76,7 @@ let keyboardOverlayEnabled = false;
 let desklinkOskMode = false;
 let interceptionKeyboardMode = false;
 
-const viewerInputTypes = new Set(["mouse-move", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
+const viewerInputTypes = new Set(["mouse-move", "mouse-relative", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
 
 const peerKeyboardLayout = [
   ["Escape", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Backspace"],
@@ -521,6 +521,15 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
+    // Pointer Lock gives games relative movement instead of repeatedly
+    // repositioning the host cursor. That avoids fighting games which recenter
+    // their cursor every frame for camera control.
+    if (document.pointerLockElement === remoteVideo) {
+      const dx = Math.round(event.movementX || 0);
+      const dy = Math.round(event.movementY || 0);
+      if (dx || dy) sendControlMessage({ type: "mouse-relative", payload: { dx, dy } });
+      return;
+    }
     const position = getVideoPosition(event);
     if (!position) return;
     const { x, y } = position;
@@ -535,6 +544,14 @@ function attachViewerControlHandlers() {
     if (!position) return;
     const { x, y } = position;
     event.preventDefault();
+    if (document.fullscreenElement && document.pointerLockElement !== remoteVideo) {
+      try {
+        const lockResult = remoteVideo.requestPointerLock?.({ unadjustedMovement: true });
+        lockResult?.catch?.(() => remoteVideo.requestPointerLock?.());
+      } catch {
+        remoteVideo.requestPointerLock?.();
+      }
+    }
     remoteVideo.setPointerCapture?.(event.pointerId);
     sendControlMessage({ type: "mouse-down", payload: { x, y, button: event.button } });
   });

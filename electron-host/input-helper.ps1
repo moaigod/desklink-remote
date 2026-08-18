@@ -8,7 +8,7 @@ public static class DeskLinkInput {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr FindWindow(string className, string windowName);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
-    [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, int data, UIntPtr extra);
+  [DllImport("user32.dll")] public static extern void mouse_event(uint flags, int dx, int dy, int data, UIntPtr extra);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
   [DllImport("user32.dll")] public static extern short VkKeyScan(char ch);
   [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
@@ -266,6 +266,17 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
     if ($message.type -eq 'gamepad-state') {
       $controllers = @($payload.controllers)
       if ($controllers.Count -gt 0) { Update-ViGEmController $controllers[0] } else { Stop-ViGEmController }
+      continue
+    }
+    if ($message.type -eq 'mouse-relative') {
+      # Relative movement is for pointer-locked games which intentionally keep
+      # their Windows cursor centered. Do not turn it into an absolute position.
+      $dx = [int]$payload.dx; $dy = [int]$payload.dy
+      if ($dx -gt 500) { $dx = 500 } elseif ($dx -lt -500) { $dx = -500 }
+      if ($dy -gt 500) { $dy = 500 } elseif ($dy -lt -500) { $dy = -500 }
+      if ($dx -ne 0 -or $dy -ne 0) {
+        [DeskLinkInput]::mouse_event(0x0001, $dx, $dy, 0, [UIntPtr]::Zero)
+      }
       continue
     }
     if ($message.type -like 'mouse-*') {
