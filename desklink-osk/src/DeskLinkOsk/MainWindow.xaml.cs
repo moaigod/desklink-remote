@@ -39,7 +39,12 @@ public partial class MainWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        ((HwndSource)PresentationSource.FromVisual(this)).AddHook(WindowMessageHook);
+        var source = (HwndSource)PresentationSource.FromVisual(this);
+        source.AddHook(WindowMessageHook);
+        const int GwlExStyle = -20;
+        const long WsExNoActivate = 0x08000000L;
+        var extendedStyle = GetWindowLongPtr(source.Handle, GwlExStyle).ToInt64();
+        SetWindowLongPtr(source.Handle, GwlExStyle, new IntPtr(extendedStyle | WsExNoActivate));
     }
 
     private IntPtr WindowMessageHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -175,4 +180,6 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll")] private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extraInfo);
     [DllImport("user32.dll")] private static extern short VkKeyScan(char character);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr", SetLastError = true)] private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int index);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr", SetLastError = true)] private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int index, IntPtr value);
 }
