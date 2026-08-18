@@ -3,6 +3,8 @@ using System;
 using System.Runtime.InteropServices;
 public static class DeskLinkInput {
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr FindWindow(string className, string windowName);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
     [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, int data, UIntPtr extra);
@@ -36,6 +38,7 @@ $keyMap = @{
 $targetBounds = $null
 $useOnScreenKeyboard = $false
 $useDeskLinkOsk = $false
+$desklinkOskTargetWindow = [IntPtr]::Zero
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
@@ -44,6 +47,7 @@ function Get-DeskLinkOskWindow {
   $exePath = Join-Path $appRoot 'desklink-osk\releases\DeskLinkOSK-0.1.0\DeskLinkOsk.exe'
   $process = Get-Process -Name DeskLinkOsk -ErrorAction SilentlyContinue | Select-Object -First 1
   if (-not $process) {
+    $desklinkOskTargetWindow = [DeskLinkInput]::GetForegroundWindow()
     if (-not (Test-Path -LiteralPath $exePath)) {
       [Console]::Error.WriteLine("DeskLink OSK mode: app not found at $exePath")
       return $null
@@ -58,7 +62,10 @@ function Get-DeskLinkOskWindow {
   for ($attempt = 0; $attempt -lt 20; $attempt++) {
     $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
     $window = $windows | Where-Object { $_.Current.ProcessId -eq $process.Id } | Select-Object -First 1
-    if ($window) { return $window }
+    if ($window) {
+      if ($desklinkOskTargetWindow -ne [IntPtr]::Zero) { [DeskLinkInput]::SetForegroundWindow($desklinkOskTargetWindow) | Out-Null }
+      return $window
+    }
     Start-Sleep -Milliseconds 100
   }
   return $null
@@ -88,6 +95,7 @@ function Invoke-DeskLinkOskKey($key) {
 function Send-DeskLinkOskCommand($type, $key) {
   Get-DeskLinkOskWindow | Out-Null
   try {
+    if ($desklinkOskTargetWindow -ne [IntPtr]::Zero) { [DeskLinkInput]::SetForegroundWindow($desklinkOskTargetWindow) | Out-Null }
     $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'DeskLinkOsk', [System.IO.Pipes.PipeDirection]::Out)
     $pipe.Connect(500)
     $writer = New-Object System.IO.StreamWriter($pipe)
