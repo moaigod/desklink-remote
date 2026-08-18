@@ -228,7 +228,6 @@ ipcMain.handle('get-connection-config', () => ({
 
 ipcMain.on('inject-input', (_event, message) => {
   if (!message || !['mouse-move', 'mouse-down', 'mouse-up', 'mouse-click', 'mouse-scroll', 'key-down', 'key-up', 'text', 'release-input', 'host-alt-tab', 'set-desklink-osk-mode'].includes(message.type)) return;
-  if (message.type === 'set-desklink-osk-mode') setDeskLinkOskOverlay(Boolean(message.payload?.enabled));
   if (oskOverlayWindow && !oskOverlayWindow.isDestroyed() && oskOverlayWindow.isVisible() && ['key-down', 'key-up', 'release-input'].includes(message.type)) {
     oskOverlayWindow.webContents.send('desklink-key-state', message);
   }

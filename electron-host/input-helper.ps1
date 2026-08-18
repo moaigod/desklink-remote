@@ -182,8 +182,8 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       continue
     }
     if ($message.type -eq 'set-desklink-osk-mode') {
-      $useDeskLinkOsk = $false
-      [Console]::Error.WriteLine('DeskLink OSK overlay mode changed. Keyboard input uses normal host injection.')
+      $useDeskLinkOsk = [bool]$payload.enabled
+      [Console]::Error.WriteLine("DeskLink OSK input mode: $useDeskLinkOsk")
       continue
     }
     if ($message.type -eq 'release-input') {
@@ -254,16 +254,12 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       }
     } elseif ($useDeskLinkOsk -and $message.type -eq 'text') {
       foreach ($character in [string]$payload.text) {
-        Send-DeskLinkOskCommand 'key-down' ([string]$character) | Out-Null
-        Send-DeskLinkOskCommand 'key-up' ([string]$character) | Out-Null
         [DeskLinkInput]::SendUnicode([char]$character) | Out-Null
       }
     } elseif ($useDeskLinkOsk -and $message.type -eq 'key-down') {
-      Send-DeskLinkOskCommand 'key-down' ([string]$payload.key) | Out-Null
       $vk = Get-VirtualKey $payload.key
       if ($null -ne $vk) { [DeskLinkInput]::keybd_event($vk, 0, 0, [UIntPtr]::Zero) }
     } elseif ($useDeskLinkOsk -and $message.type -eq 'key-up') {
-      Send-DeskLinkOskCommand 'key-up' ([string]$payload.key) | Out-Null
       $vk = Get-VirtualKey $payload.key
       if ($null -ne $vk) { [DeskLinkInput]::keybd_event($vk, 0, 0x0002, [UIntPtr]::Zero) }
     } elseif ($useOnScreenKeyboard -and $message.type -eq 'text') {
