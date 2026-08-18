@@ -38,14 +38,14 @@ let connectionConfig = {
 };
 
 const qualityProfiles = {
-  smooth: { label: 'Smooth', width: 960, height: 540, frameRate: 30, maxBitrate: 1_500_000, contentHint: 'motion' },
-  balanced: { label: 'Balanced', width: 1280, height: 720, frameRate: 30, maxBitrate: 3_500_000, contentHint: 'detail' },
-  crisp: { label: 'Crisp', width: 1920, height: 1080, frameRate: 60, maxBitrate: 8_000_000, contentHint: 'detail' },
+  smooth: { label: 'Smooth', width: 960, height: 540, frameRate: 30, maxBitrate: 4_000_000, contentHint: 'motion' },
+  balanced: { label: 'Balanced', width: 1280, height: 720, frameRate: 30, maxBitrate: 8_000_000, contentHint: 'motion' },
+  crisp: { label: 'Crisp', width: 1920, height: 1080, frameRate: 60, maxBitrate: 16_000_000, contentHint: 'motion' },
 };
 const viewerQualityProfiles = {
-  smooth: { label: 'Smooth', frameRate: 30, maxBitrate: 1_500_000 },
-  balanced: { label: 'Balanced', frameRate: 30, maxBitrate: 3_500_000 },
-  crisp: { label: 'Crisp', frameRate: 60, maxBitrate: 8_000_000 },
+  smooth: { label: 'Smooth', frameRate: 30, maxBitrate: 4_000_000 },
+  balanced: { label: 'Balanced', frameRate: 30, maxBitrate: 8_000_000 },
+  crisp: { label: 'Crisp', frameRate: 60, maxBitrate: 16_000_000 },
 };
 const hostPreferencesKey = 'desklink-host-preferences';
 
