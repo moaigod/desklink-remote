@@ -38,7 +38,6 @@ $keyMap = @{
 $targetBounds = $null
 $useOnScreenKeyboard = $false
 $useDeskLinkOsk = $false
-$desklinkOskTargetWindow = [IntPtr]::Zero
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
@@ -47,7 +46,6 @@ function Get-DeskLinkOskWindow {
   $exePath = Join-Path $appRoot 'desklink-osk\releases\DeskLinkOSK-0.1.0\DeskLinkOsk.exe'
   $process = Get-Process -Name DeskLinkOsk -ErrorAction SilentlyContinue | Select-Object -First 1
   if (-not $process) {
-    $desklinkOskTargetWindow = [DeskLinkInput]::GetForegroundWindow()
     if (-not (Test-Path -LiteralPath $exePath)) {
       [Console]::Error.WriteLine("DeskLink OSK mode: app not found at $exePath")
       return $null
@@ -62,10 +60,7 @@ function Get-DeskLinkOskWindow {
   for ($attempt = 0; $attempt -lt 20; $attempt++) {
     $windows = [System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
     $window = $windows | Where-Object { $_.Current.ProcessId -eq $process.Id } | Select-Object -First 1
-    if ($window) {
-      if ($desklinkOskTargetWindow -ne [IntPtr]::Zero) { [DeskLinkInput]::SetForegroundWindow($desklinkOskTargetWindow) | Out-Null }
-      return $window
-    }
+    if ($window) { return $window }
     Start-Sleep -Milliseconds 100
   }
   return $null
@@ -95,7 +90,6 @@ function Invoke-DeskLinkOskKey($key) {
 function Send-DeskLinkOskCommand($type, $key) {
   Get-DeskLinkOskWindow | Out-Null
   try {
-    if ($desklinkOskTargetWindow -ne [IntPtr]::Zero) { [DeskLinkInput]::SetForegroundWindow($desklinkOskTargetWindow) | Out-Null }
     $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'DeskLinkOsk', [System.IO.Pipes.PipeDirection]::Out)
     $pipe.Connect(500)
     $writer = New-Object System.IO.StreamWriter($pipe)
@@ -268,11 +262,16 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       foreach ($character in [string]$payload.text) {
         Send-DeskLinkOskCommand 'key-down' ([string]$character) | Out-Null
         Send-DeskLinkOskCommand 'key-up' ([string]$character) | Out-Null
+        [DeskLinkInput]::SendUnicode([char]$character) | Out-Null
       }
     } elseif ($useDeskLinkOsk -and $message.type -eq 'key-down') {
       Send-DeskLinkOskCommand 'key-down' ([string]$payload.key) | Out-Null
+      $vk = Get-VirtualKey $payload.key
+      if ($null -ne $vk) { [DeskLinkInput]::keybd_event($vk, 0, 0, [UIntPtr]::Zero) }
     } elseif ($useDeskLinkOsk -and $message.type -eq 'key-up') {
       Send-DeskLinkOskCommand 'key-up' ([string]$payload.key) | Out-Null
+      $vk = Get-VirtualKey $payload.key
+      if ($null -ne $vk) { [DeskLinkInput]::keybd_event($vk, 0, 0x0002, [UIntPtr]::Zero) }
     } elseif ($useOnScreenKeyboard -and $message.type -eq 'text') {
       foreach ($character in [string]$payload.text) { Invoke-OskKey ([string]$character) | Out-Null }
     } elseif ($useOnScreenKeyboard -and $message.type -eq 'key-down') {

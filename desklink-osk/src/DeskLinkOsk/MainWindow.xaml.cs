@@ -15,6 +15,7 @@ public partial class MainWindow : Window
     private const uint KeyUpFlag = 0x0002;
     private readonly HashSet<string> heldKeys = [];
     private readonly HashSet<string> pointerActivatedKeys = [];
+    private readonly Dictionary<string, Button> keyButtons = [];
     private readonly CancellationTokenSource pipeCancellation = new();
     private sealed record KeySpec(string Label, string Key, double Width = 1);
 
@@ -75,6 +76,7 @@ public partial class MainWindow : Window
                 button.PreviewMouseLeftButtonUp += KeyReleased;
                 button.MouseLeave += KeyLeft;
                 button.Click += KeyInvoked;
+                keyButtons.TryAdd(key.Key, button);
                 Grid.SetColumn(button, column);
                 grid.Children.Add(button);
             }
@@ -132,6 +134,23 @@ public partial class MainWindow : Window
         foreach (var key in heldKeys.ToArray()) ReleaseKey(key);
     }
 
+    private void ShowRemoteKey(string key, bool pressed)
+    {
+        if (!keyButtons.TryGetValue(key, out var button)) return;
+        if (pressed)
+        {
+            button.Background = System.Windows.Media.Brushes.MediumSpringGreen;
+            button.Foreground = System.Windows.Media.Brushes.MidnightBlue;
+            StatusText.Text = $"Key down: {DisplayKey(key)}";
+        }
+        else
+        {
+            button.ClearValue(Button.BackgroundProperty);
+            button.ClearValue(Button.ForegroundProperty);
+            StatusText.Text = $"Key up: {DisplayKey(key)}";
+        }
+    }
+
     private async Task ListenForDeskLinkCommandsAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
@@ -149,9 +168,9 @@ public partial class MainWindow : Window
                 var key = root.TryGetProperty("key", out var keyValue) ? keyValue.GetString() : null;
                 await Dispatcher.InvokeAsync(() =>
                 {
-                    if (type == "release-input") ReleaseAllKeys();
-                    else if (!string.IsNullOrEmpty(key) && type == "key-down") PressKey(key);
-                    else if (!string.IsNullOrEmpty(key) && type == "key-up") ReleaseKey(key);
+                    if (type == "release-input") foreach (var heldKey in heldKeys.ToArray()) ShowRemoteKey(heldKey, false);
+                    else if (!string.IsNullOrEmpty(key) && type == "key-down") { heldKeys.Add(key); ShowRemoteKey(key, true); }
+                    else if (!string.IsNullOrEmpty(key) && type == "key-up") { heldKeys.Remove(key); ShowRemoteKey(key, false); }
                 });
             }
             catch (OperationCanceledException) { break; }
