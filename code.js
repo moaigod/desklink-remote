@@ -521,14 +521,20 @@ function attachViewerControlHandlers() {
   }
   viewerControlHandlersAttached = true;
 
+  const sendLockedMouseMovement = (event) => {
+    if (!connected || role !== "viewer" || document.pointerLockElement !== remoteVideo) return;
+    const dx = Math.round(event.movementX || 0);
+    const dy = Math.round(event.movementY || 0);
+    if (dx || dy) sendControlMessage({ type: "mouse-relative", payload: { dx, dy } });
+  };
+
   remoteVideo.addEventListener("pointermove", (event) => {
     if (!connected || role !== "viewer") {
       return;
     }
     if (document.pointerLockElement === remoteVideo) {
-      const dx = Math.round(event.movementX || 0);
-      const dy = Math.round(event.movementY || 0);
-      if (dx || dy) sendControlMessage({ type: "mouse-relative", payload: { dx, dy } });
+      // Pointer Lock guarantees mousemove events. Some Chromebook builds do
+      // not send pointermove while locked, so mousemove below owns this path.
       return;
     }
     const position = getVideoPosition(event);
@@ -536,6 +542,8 @@ function attachViewerControlHandlers() {
     const { x, y } = position;
     sendControlMessage({ type: "mouse-move", payload: { x, y } });
   });
+
+  remoteVideo.addEventListener("mousemove", sendLockedMouseMovement);
 
   remoteVideo.addEventListener("pointerdown", (event) => {
     if (!connected || role !== "viewer") {
@@ -774,6 +782,12 @@ function attachViewerControlHandlers() {
     if (isFullscreen && controlsHiddenUntilFullscreen) {
       controlsHiddenUntilFullscreen = false;
       showRemoteControls();
+    }
+  });
+
+  document.addEventListener("pointerlockchange", () => {
+    if (document.pointerLockElement !== remoteVideo && document.fullscreenElement) {
+      viewerMessage.textContent = "Game mouse mode off. Client cursor released.";
     }
   });
 
