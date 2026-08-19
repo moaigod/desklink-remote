@@ -15,12 +15,12 @@ const disconnectBtn = document.getElementById("disconnectBtn");
 const viewOnlyBtn = document.getElementById("viewOnlyBtn");
 const localCursorBtn = document.getElementById("localCursorBtn");
 const keyboardOverlayBtn = document.getElementById("keyboardOverlayBtn");
+const interceptionKeyboardBtn = document.getElementById("interceptionKeyboardBtn");
+const interceptionMouseBtn = document.getElementById("interceptionMouseBtn");
 const peerKeyboardOverlay = document.getElementById("peerKeyboardOverlay");
 const closeKeyboardOverlayBtn = document.getElementById("closeKeyboardOverlayBtn");
 const peerKeyboardKeys = document.getElementById("peerKeyboardKeys");
-const desklinkOskBtn = document.getElementById("desklinkOskBtn");
-const interceptionKeyboardBtn = document.getElementById("interceptionKeyboardBtn");
-const interceptionMouseBtn = document.getElementById("interceptionMouseBtn");
+const hostOskBtn = document.getElementById("hostOskBtn");
 const hideControlsBtn = document.getElementById("hideControlsBtn");
 const connectionStats = document.getElementById("connectionStats");
 const clientQualitySelect = document.getElementById("clientQualitySelect");
@@ -74,11 +74,14 @@ let showLocalCursor = false;
 let controlsHiddenUntilFullscreen = false;
 let connectionStatsTimer = null;
 let keyboardOverlayEnabled = false;
-let desklinkOskMode = false;
+let hostOskMode = false;
+// These are opt-in on the host: the peer sends the state as soon as its
+// control channel opens. The controls used to be visual-only, which meant
+// their "on" labels never actually enabled Interception.
 let interceptionKeyboardMode = true;
 let interceptionMouseMode = true;
 
-const viewerInputTypes = new Set(["mouse-move", "mouse-relative", "mouse-button", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
+const viewerInputTypes = new Set(["mouse-move", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
 
 const peerKeyboardLayout = [
   ["Escape", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "Backspace"],
@@ -202,6 +205,20 @@ function sendViewerQualityPreference() {
   const profile = clientQualitySelect?.value;
   if (!profile) return;
   sendControlMessage({ type: "set-stream-quality", payload: { profile } });
+}
+
+function updateInterceptionControls({ announce = false } = {}) {
+  interceptionKeyboardBtn?.setAttribute("aria-pressed", String(interceptionKeyboardMode));
+  interceptionMouseBtn?.setAttribute("aria-pressed", String(interceptionMouseMode));
+  if (interceptionKeyboardBtn) interceptionKeyboardBtn.textContent = `Game keyboard driver: ${interceptionKeyboardMode ? "on" : "off"}`;
+  if (interceptionMouseBtn) interceptionMouseBtn.textContent = `Game mouse driver: ${interceptionMouseMode ? "on" : "off"}`;
+
+  sendControlMessage({ type: "set-interception-keyboard-mode", payload: { enabled: interceptionKeyboardMode } });
+  sendControlMessage({ type: "set-interception-mouse-mode", payload: { enabled: interceptionMouseMode } });
+
+  if (announce && viewerMessage) {
+    viewerMessage.textContent = `Game keyboard driver ${interceptionKeyboardMode ? "on" : "off"}; game mouse driver ${interceptionMouseMode ? "on" : "off"}.`;
+  }
 }
 
 function stopConnectionStats() {
@@ -452,8 +469,7 @@ function setupControlChannel(channel) {
       viewerMessage.textContent = "Remote control is ready. Click and type in the shared page.";
       startControllerCapture();
       sendViewerQualityPreference();
-      sendControlMessage({ type: "set-interception-keyboard-mode", payload: { enabled: interceptionKeyboardMode } });
-      sendControlMessage({ type: "set-interception-mouse-mode", payload: { enabled: interceptionMouseMode } });
+      updateInterceptionControls();
     }
   });
 
@@ -521,20 +537,8 @@ function attachViewerControlHandlers() {
   }
   viewerControlHandlersAttached = true;
 
-  const sendLockedMouseMovement = (event) => {
-    if (!connected || role !== "viewer" || document.pointerLockElement !== remoteVideo) return;
-    const dx = Math.round(event.movementX || 0);
-    const dy = Math.round(event.movementY || 0);
-    if (dx || dy) sendControlMessage({ type: "mouse-relative", payload: { dx, dy } });
-  };
-
   remoteVideo.addEventListener("pointermove", (event) => {
     if (!connected || role !== "viewer") {
-      return;
-    }
-    if (document.pointerLockElement === remoteVideo) {
-      // Pointer Lock guarantees mousemove events. Some Chromebook builds do
-      // not send pointermove while locked, so mousemove below owns this path.
       return;
     }
     const position = getVideoPosition(event);
@@ -543,15 +547,8 @@ function attachViewerControlHandlers() {
     sendControlMessage({ type: "mouse-move", payload: { x, y } });
   });
 
-  remoteVideo.addEventListener("mousemove", sendLockedMouseMovement);
-
   remoteVideo.addEventListener("pointerdown", (event) => {
     if (!connected || role !== "viewer") {
-      return;
-    }
-    if (document.pointerLockElement === remoteVideo) {
-      event.preventDefault();
-      sendControlMessage({ type: "mouse-button", payload: { button: event.button, down: true } });
       return;
     }
     const position = getVideoPosition(event);
@@ -566,11 +563,6 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
-    if (document.pointerLockElement === remoteVideo) {
-      event.preventDefault();
-      sendControlMessage({ type: "mouse-button", payload: { button: event.button, down: false } });
-      return;
-    }
     const position = getVideoPosition(event);
     if (!position) return;
     const { x, y } = position;
@@ -581,10 +573,6 @@ function attachViewerControlHandlers() {
 
   remoteVideo.addEventListener("pointercancel", (event) => {
     if (!connected || role !== "viewer") return;
-    if (document.pointerLockElement === remoteVideo) {
-      sendControlMessage({ type: "mouse-button", payload: { button: event.button || 0, down: false } });
-      return;
-    }
     const position = getVideoPosition(event);
     if (!position) return;
     sendControlMessage({ type: "mouse-up", payload: { ...position, button: event.button || 0 } });
@@ -605,25 +593,12 @@ function attachViewerControlHandlers() {
     event.stopPropagation();
   });
 
-  remoteVideo.addEventListener("contextmenu", (event) => {
-    // A right-click is remote input while in the immersive viewer, never the
-    // browser's own menu. Keep the normal page menu available outside it.
-    if (document.fullscreenElement) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  });
-
   fullscreenBtn.addEventListener("click", async () => {
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       } else {
-        // Keyboard Lock lets a fullscreen remote desktop receive Escape rather
-        // than having the browser immediately leave fullscreen. Browsers that
-        // do not support it simply fall back to their normal fullscreen mode.
-        await document.documentElement.requestFullscreen({ navigationUI: "hide", keyboardLock: "browser" });
-        await navigator.keyboard?.lock?.(["Escape"]);
+        await document.documentElement.requestFullscreen();
       }
     } catch (error) {
       console.warn("Fullscreen request failed", error);
@@ -712,50 +687,28 @@ function attachViewerControlHandlers() {
     setKeyboardOverlayEnabled(!keyboardOverlayEnabled);
   });
 
-  closeKeyboardOverlayBtn?.addEventListener("click", () => {
-    setKeyboardOverlayEnabled(false);
-  });
-
-  desklinkOskBtn?.addEventListener("click", () => {
-    if (interceptionKeyboardMode) {
-      interceptionKeyboardMode = false;
-      interceptionKeyboardBtn?.setAttribute("aria-pressed", "false");
-      if (interceptionKeyboardBtn) interceptionKeyboardBtn.textContent = "Game keyboard driver: off";
-      sendControlMessage({ type: "set-interception-keyboard-mode", payload: { enabled: false } });
-    }
-    desklinkOskMode = !desklinkOskMode;
-    desklinkOskBtn.setAttribute("aria-pressed", String(desklinkOskMode));
-    desklinkOskBtn.textContent = `DeskLink OSK: ${desklinkOskMode ? "on" : "off"}`;
-    sendControlMessage({ type: "set-desklink-osk-mode", payload: { enabled: desklinkOskMode } });
-    viewerMessage.textContent = desklinkOskMode
-      ? "DeskLink OSK input mode is on. Turn on On-screen keyboard separately if you want visual key feedback."
-      : "DeskLink OSK input mode is off. Using normal remote keyboard input.";
-  });
-
   interceptionKeyboardBtn?.addEventListener("click", () => {
     interceptionKeyboardMode = !interceptionKeyboardMode;
-    if (interceptionKeyboardMode && desklinkOskMode) {
-      desklinkOskMode = false;
-      desklinkOskBtn?.setAttribute("aria-pressed", "false");
-      if (desklinkOskBtn) desklinkOskBtn.textContent = "DeskLink OSK: off";
-      sendControlMessage({ type: "set-desklink-osk-mode", payload: { enabled: false } });
-    }
-    interceptionKeyboardBtn.setAttribute("aria-pressed", String(interceptionKeyboardMode));
-    interceptionKeyboardBtn.textContent = `Game keyboard driver: ${interceptionKeyboardMode ? "on" : "off"}`;
-    sendControlMessage({ type: "set-interception-keyboard-mode", payload: { enabled: interceptionKeyboardMode } });
-    viewerMessage.textContent = interceptionKeyboardMode
-      ? "Experimental game keyboard driver is on. Turn it off if a game or your keyboard behaves strangely."
-      : "Game keyboard driver is off. Using normal remote keyboard input.";
+    updateInterceptionControls({ announce: true });
   });
 
   interceptionMouseBtn?.addEventListener("click", () => {
     interceptionMouseMode = !interceptionMouseMode;
-    interceptionMouseBtn.setAttribute("aria-pressed", String(interceptionMouseMode));
-    interceptionMouseBtn.textContent = `Game mouse driver: ${interceptionMouseMode ? "on" : "off"}`;
-    sendControlMessage({ type: "set-interception-mouse-mode", payload: { enabled: interceptionMouseMode } });
-    viewerMessage.textContent = interceptionMouseMode
-      ? "Game mouse driver is on. Use \\ in fullscreen to toggle centered game-mouse mode."
-      : "Game mouse driver is off. Using standard Windows mouse input.";
+    updateInterceptionControls({ announce: true });
+  });
+
+  closeKeyboardOverlayBtn?.addEventListener("click", () => {
+    setKeyboardOverlayEnabled(false);
+  });
+
+  hostOskBtn?.addEventListener("click", () => {
+    hostOskMode = !hostOskMode;
+    hostOskBtn.setAttribute("aria-pressed", String(hostOskMode));
+    hostOskBtn.textContent = `Host OSK mode: ${hostOskMode ? "on" : "off"}`;
+    sendControlMessage({ type: "set-osk-mode", payload: { enabled: hostOskMode } });
+    viewerMessage.textContent = hostOskMode
+      ? "Experimental mode: opening Windows On-Screen Keyboard on the host."
+      : "Host OSK mode is off. Using regular remote keyboard input.";
   });
 
   hideControlsBtn?.addEventListener("click", () => {
@@ -778,16 +731,10 @@ function attachViewerControlHandlers() {
     const isFullscreen = Boolean(document.fullscreenElement);
     document.body.classList.toggle("remote-fullscreen", isFullscreen);
     fullscreenBtn.textContent = isFullscreen ? "Exit fullscreen" : "Fullscreen";
-    if (!isFullscreen) navigator.keyboard?.unlock?.();
+    remoteVideo.style.cursor = isFullscreen ? "none" : "";
     if (isFullscreen && controlsHiddenUntilFullscreen) {
       controlsHiddenUntilFullscreen = false;
       showRemoteControls();
-    }
-  });
-
-  document.addEventListener("pointerlockchange", () => {
-    if (document.pointerLockElement !== remoteVideo && document.fullscreenElement) {
-      viewerMessage.textContent = "Game mouse mode off. Client cursor released.";
     }
   });
 
@@ -805,29 +752,8 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
-    // F11 remains the viewer's escape hatch. Escape is deliberately captured
-    // and forwarded to the host while DeskLink is fullscreen.
-    if (event.key === "F11") {
-      return;
-    }
-    // Fullscreen game mouse mode: use the physical Backslash key as an
-    // explicit toggle so normal desktop control never becomes pointer-locked.
-    if (event.code === "Backslash" && document.fullscreenElement) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (document.pointerLockElement === remoteVideo) {
-        document.exitPointerLock?.();
-        viewerMessage.textContent = "Game mouse mode off. Client cursor released.";
-      } else {
-        try {
-          const lockResult = remoteVideo.requestPointerLock?.({ unadjustedMovement: true });
-          lockResult?.catch?.(() => remoteVideo.requestPointerLock?.());
-          viewerMessage.textContent = "Game mouse mode on. Press \\ to release the client cursor.";
-        } catch {
-          remoteVideo.requestPointerLock?.();
-          viewerMessage.textContent = "Game mouse mode on. Press \\ to release the client cursor.";
-        }
-      }
+    // Let the Chromebook/browser handle its own fullscreen controls.
+    if (event.key === "F11" || (event.key === "Escape" && document.fullscreenElement)) {
       return;
     }
     // Alt+Tab and the Windows/Command key are owned by the viewer computer.
@@ -844,9 +770,7 @@ function attachViewerControlHandlers() {
     event.preventDefault();
     event.stopPropagation();
     if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, true);
-    if (desklinkOskMode || interceptionKeyboardMode) {
-      sendControlMessage({ type: "key-down", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
-    } else if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       sendControlMessage({ type: "text", payload: { text: event.key } });
     } else {
       sendControlMessage({ type: "key-down", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
@@ -857,12 +781,7 @@ function attachViewerControlHandlers() {
     if (!connected || role !== "viewer") {
       return;
     }
-    if (event.key === "F11") {
-      return;
-    }
-    if (event.code === "Backslash" && document.fullscreenElement) {
-      event.preventDefault();
-      event.stopPropagation();
+    if (event.key === "F11" || (event.key === "Escape" && document.fullscreenElement)) {
       return;
     }
     if (event.key === "Alt" || event.key === "Meta" || event.key === "AltGraph") {
@@ -871,7 +790,7 @@ function attachViewerControlHandlers() {
     event.preventDefault();
     event.stopPropagation();
     if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, false);
-    if (!desklinkOskMode && !interceptionKeyboardMode && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       return;
     }
     sendControlMessage({ type: "key-up", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
