@@ -770,7 +770,9 @@ function attachViewerControlHandlers() {
     event.preventDefault();
     event.stopPropagation();
     if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, true);
-    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    // Games need scan-code key-down/key-up events, including normal letters
+    // such as W/A/S/D. Text input is only for the regular desktop path.
+    if (!interceptionKeyboardMode && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       sendControlMessage({ type: "text", payload: { text: event.key } });
     } else {
       sendControlMessage({ type: "key-down", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
@@ -790,7 +792,7 @@ function attachViewerControlHandlers() {
     event.preventDefault();
     event.stopPropagation();
     if (keyboardOverlayEnabled) showPeerKeyboardKey(event.key, false);
-    if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (!interceptionKeyboardMode && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
       return;
     }
     sendControlMessage({ type: "key-up", payload: { key: event.key, code: event.code, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey } });
