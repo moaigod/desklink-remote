@@ -49,10 +49,13 @@ public static class DeskLinkViGEm {
 
 public static class DeskLinkInterception {
   [StructLayout(LayoutKind.Sequential)] public struct KeyStroke { public ushort code; public ushort state; public ushort information; }
+  [StructLayout(LayoutKind.Sequential)] public struct MouseStroke { public ushort state; public ushort flags; public short rolling; public int x; public int y; public uint information; }
   [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern IntPtr interception_create_context();
   [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern void interception_destroy_context(IntPtr context);
   [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern int interception_is_keyboard(int device);
+  [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern int interception_is_mouse(int device);
   [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern int interception_send(IntPtr context, int device, ref KeyStroke stroke, uint count);
+  [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl, EntryPoint="interception_send")] public static extern int interception_send_mouse(IntPtr context, int device, ref MouseStroke stroke, uint count);
 }
 '@
 
@@ -68,9 +71,14 @@ $keyMap = @{
 $targetBounds = $null
 $useDeskLinkOsk = $false
 $useInterceptionKeyboard = $false
+$useInterceptionMouse = $false
 $interceptionContext = [IntPtr]::Zero
 $interceptionUnavailable = $false
 $interceptionHeld = @{}
+$interceptionMouseContext = [IntPtr]::Zero
+$interceptionMouseUnavailable = $false
+$interceptionMouseHeld = @{}
+$interceptionMouseDevice = 11
 $viGemBridgeLoaded = $false
 $viGemUnavailable = $false
 
@@ -164,6 +172,60 @@ function Send-InterceptionKey($payload, $isUp) {
   return $true
 }
 
+function Stop-InterceptionMouse {
+  if ($interceptionMouseContext -ne [IntPtr]::Zero) {
+    foreach ($button in @($interceptionMouseHeld.Keys)) {
+      $stroke = New-Object DeskLinkInterception+MouseStroke
+      $stroke.state = [uint16](if ($button -eq 2) { 0x0008 } elseif ($button -eq 1) { 0x0020 } else { 0x0002 })
+      try { [DeskLinkInterception]::interception_send_mouse($interceptionMouseContext, $interceptionMouseDevice, [ref]$stroke, 1) | Out-Null } catch { }
+    }
+    try { [DeskLinkInterception]::interception_destroy_context($interceptionMouseContext) } catch { }
+  }
+  $script:interceptionMouseContext = [IntPtr]::Zero
+  $script:interceptionMouseHeld = @{}
+}
+
+function Start-InterceptionMouse {
+  if ($interceptionMouseContext -ne [IntPtr]::Zero) { return $true }
+  if ($interceptionMouseUnavailable) { return $false }
+  $libraryPath = Join-Path $PSScriptRoot 'interception-bridge\interception.dll'
+  if (-not (Test-Path -LiteralPath $libraryPath)) { [Console]::Error.WriteLine('Interception mouse bridge is missing from DeskLink.'); $script:interceptionMouseUnavailable = $true; return $false }
+  [DeskLinkInput]::SetDllDirectory((Split-Path -Parent $libraryPath)) | Out-Null
+  try {
+    $script:interceptionMouseContext = [DeskLinkInterception]::interception_create_context()
+    if ($interceptionMouseContext -eq [IntPtr]::Zero) { throw 'Could not create an Interception mouse context.' }
+    if (-not [DeskLinkInterception]::interception_is_mouse($interceptionMouseDevice)) { throw 'Interception mouse device is unavailable.' }
+    [Console]::Error.WriteLine("Interception game mouse bridge connected to device $interceptionMouseDevice.")
+    return $true
+  } catch { [Console]::Error.WriteLine("Interception mouse bridge failed: $($_.Exception.Message)"); Stop-InterceptionMouse; $script:interceptionMouseUnavailable = $true; return $false }
+}
+
+function Send-InterceptionMouseRelative($payload) {
+  if (-not (Start-InterceptionMouse)) { return $false }
+  $dx = [int]$payload.dx; $dy = [int]$payload.dy
+  if ($dx -gt 500) { $dx = 500 } elseif ($dx -lt -500) { $dx = -500 }
+  if ($dy -gt 500) { $dy = 500 } elseif ($dy -lt -500) { $dy = -500 }
+  if ($dx -eq 0 -and $dy -eq 0) { return $true }
+  $stroke = New-Object DeskLinkInterception+MouseStroke
+  $stroke.flags = [uint16]0x0008
+  $stroke.x = $dx; $stroke.y = $dy
+  $sent = [DeskLinkInterception]::interception_send_mouse($interceptionMouseContext, $interceptionMouseDevice, [ref]$stroke, 1)
+  if ($sent -ne 1) { [Console]::Error.WriteLine('Interception could not send mouse movement.'); return $false }
+  return $true
+}
+
+function Send-InterceptionMouseButton($payload) {
+  if (-not (Start-InterceptionMouse)) { return $false }
+  $button = [int]$payload.button; $isDown = [bool]$payload.down
+  $state = if ($button -eq 2) { if ($isDown) { 0x0004 } else { 0x0008 } } elseif ($button -eq 1) { if ($isDown) { 0x0010 } else { 0x0020 } } else { if ($isDown) { 0x0001 } else { 0x0002 } }
+  $stroke = New-Object DeskLinkInterception+MouseStroke
+  $stroke.state = [uint16]$state
+  $sent = [DeskLinkInterception]::interception_send_mouse($interceptionMouseContext, $interceptionMouseDevice, [ref]$stroke, 1)
+  if ($sent -ne 1) { [Console]::Error.WriteLine('Interception could not send a mouse button.'); return $false }
+  if ($isDown) { $script:interceptionMouseHeld[$button] = $true } else { $script:interceptionMouseHeld.Remove($button) }
+  return $true
+}
+
 function Get-OskKeyPoint($key) {
   $topRow = @('Escape', '`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=')
   $numberRow = @('Tab', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\\')
@@ -243,9 +305,16 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       [Console]::Error.WriteLine("Interception game keyboard mode: $useInterceptionKeyboard")
       continue
     }
+    if ($message.type -eq 'set-interception-mouse-mode') {
+      $useInterceptionMouse = [bool]$payload.enabled
+      if (-not $useInterceptionMouse) { Stop-InterceptionMouse }
+      [Console]::Error.WriteLine("Interception game mouse mode: $useInterceptionMouse")
+      continue
+    }
     if ($message.type -eq 'release-input') {
       Stop-ViGEmController
       Stop-InterceptionKeyboard
+      Stop-InterceptionMouse
       # Browser focus can disappear before keyup. Never leave modifiers held.
       foreach ($key in @(0x10, 0x11, 0x12, 0x5B, 0x5C)) {
         [DeskLinkInput]::keybd_event($key, 0, 0x0002, [UIntPtr]::Zero)
@@ -269,6 +338,7 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       continue
     }
     if ($message.type -eq 'mouse-relative') {
+      if ($useInterceptionMouse -and (Send-InterceptionMouseRelative $payload)) { continue }
       # Relative movement is for pointer-locked games which intentionally keep
       # their Windows cursor centered. Do not turn it into an absolute position.
       $dx = [int]$payload.dx; $dy = [int]$payload.dy
@@ -280,6 +350,7 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       continue
     }
     if ($message.type -eq 'mouse-button') {
+      if ($useInterceptionMouse -and (Send-InterceptionMouseButton $payload)) { continue }
       $buttonFlag = if ($payload.button -eq 2) {
         if ($payload.down) { 0x0008 } else { 0x0010 }
       } else {
@@ -369,3 +440,5 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
 }
 
 Stop-ViGEmController
+Stop-InterceptionKeyboard
+Stop-InterceptionMouse

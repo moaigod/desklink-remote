@@ -1,6 +1,6 @@
-# Optional Interception keyboard bridge
+# Optional Interception game-input bridge
 
-DeskLink can use the Interception driver for its **Game keyboard driver** setting. This is optional: the normal Windows keyboard method remains available when the setting is off.
+DeskLink can use the Interception driver for its **Game keyboard driver** and **Game mouse driver** settings. Both start on when a viewer connects, but can be turned off in the peer controls. Normal Windows keyboard and mouse input remain available as fallbacks.
 
 The driver itself is installed separately by the computer owner. DeskLink only includes the official 64-bit Interception user-mode library (`interception.dll`) used to communicate with an already-installed driver.
 

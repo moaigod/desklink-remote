@@ -20,6 +20,7 @@ const closeKeyboardOverlayBtn = document.getElementById("closeKeyboardOverlayBtn
 const peerKeyboardKeys = document.getElementById("peerKeyboardKeys");
 const desklinkOskBtn = document.getElementById("desklinkOskBtn");
 const interceptionKeyboardBtn = document.getElementById("interceptionKeyboardBtn");
+const interceptionMouseBtn = document.getElementById("interceptionMouseBtn");
 const hideControlsBtn = document.getElementById("hideControlsBtn");
 const connectionStats = document.getElementById("connectionStats");
 const clientQualitySelect = document.getElementById("clientQualitySelect");
@@ -74,7 +75,8 @@ let controlsHiddenUntilFullscreen = false;
 let connectionStatsTimer = null;
 let keyboardOverlayEnabled = false;
 let desklinkOskMode = false;
-let interceptionKeyboardMode = false;
+let interceptionKeyboardMode = true;
+let interceptionMouseMode = true;
 
 const viewerInputTypes = new Set(["mouse-move", "mouse-relative", "mouse-button", "mouse-down", "mouse-up", "mouse-click", "mouse-scroll", "key-down", "key-up", "text", "gamepad-state"]);
 
@@ -450,6 +452,8 @@ function setupControlChannel(channel) {
       viewerMessage.textContent = "Remote control is ready. Click and type in the shared page.";
       startControllerCapture();
       sendViewerQualityPreference();
+      sendControlMessage({ type: "set-interception-keyboard-mode", payload: { enabled: interceptionKeyboardMode } });
+      sendControlMessage({ type: "set-interception-mouse-mode", payload: { enabled: interceptionMouseMode } });
     }
   });
 
@@ -734,6 +738,16 @@ function attachViewerControlHandlers() {
     viewerMessage.textContent = interceptionKeyboardMode
       ? "Experimental game keyboard driver is on. Turn it off if a game or your keyboard behaves strangely."
       : "Game keyboard driver is off. Using normal remote keyboard input.";
+  });
+
+  interceptionMouseBtn?.addEventListener("click", () => {
+    interceptionMouseMode = !interceptionMouseMode;
+    interceptionMouseBtn.setAttribute("aria-pressed", String(interceptionMouseMode));
+    interceptionMouseBtn.textContent = `Game mouse driver: ${interceptionMouseMode ? "on" : "off"}`;
+    sendControlMessage({ type: "set-interception-mouse-mode", payload: { enabled: interceptionMouseMode } });
+    viewerMessage.textContent = interceptionMouseMode
+      ? "Game mouse driver is on. Use \\ in fullscreen to toggle centered game-mouse mode."
+      : "Game mouse driver is off. Using standard Windows mouse input.";
   });
 
   hideControlsBtn?.addEventListener("click", () => {
