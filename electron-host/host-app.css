@@ -35,6 +35,8 @@ header p:not(.station-kicker) { margin: 5px 0 0; color: #c9c0df; }
 .field-row { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
 input, select, button { font: inherit; border-radius: 12px; padding: 11px 13px; }
 input, select { flex: 1; min-width: 160px; border: 1px solid rgba(214, 190, 255, .24); background: rgba(255,255,255,.07); color: #fbf8ff; outline: none; }
+.audio-toggle { display: inline-flex; align-items: center; gap: 7px; padding: 10px 12px; border: 1px solid rgba(214, 190, 255, .24); border-radius: 12px; background: rgba(126, 66, 255, .12); color: #eee6ff; white-space: nowrap; cursor: pointer; }
+.audio-toggle input { flex: none; min-width: 0; accent-color: #b16dff; }
 input:focus, select:focus { border-color: #c090ff; box-shadow: 0 0 0 3px rgba(179, 105, 255, .18); }
 select option { color: #171022; background: #eee6ff; }
 button { border: 1px solid rgba(255,255,255,.12); cursor: pointer; background: linear-gradient(135deg, #b16dff, #7159ff); color: #fff; font-weight: 800; box-shadow: 0 5px 0 #38206c, 0 12px 24px rgba(72, 28, 150, .3); transition: transform .16s ease, filter .16s ease; }

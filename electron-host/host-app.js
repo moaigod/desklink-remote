@@ -2,6 +2,7 @@ const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const sourceSelect = document.getElementById('sourceSelect');
 const qualitySelect = document.getElementById('qualitySelect');
+const systemAudioInput = document.getElementById('systemAudioInput');
 const hostIdInput = document.getElementById('hostIdInput');
 const accessCodeInput = document.getElementById('accessCodeInput');
 const statusBadge = document.getElementById('statusBadge');
@@ -55,6 +56,7 @@ function loadHostPreferences() {
     if (saved.hostId) hostIdInput.value = normalizeId(saved.hostId);
     if (saved.accessCode) accessCodeInput.value = saved.accessCode;
     if (saved.quality && qualityProfiles[saved.quality] && qualitySelect) qualitySelect.value = saved.quality;
+    if (typeof saved.systemAudio === 'boolean' && systemAudioInput) systemAudioInput.checked = saved.systemAudio;
   } catch {
     // A fresh app simply starts with blank defaults.
   }
@@ -65,6 +67,7 @@ function saveHostPreferences(hostId, accessCode = accessCodeInput.value) {
     hostId: normalizeId(hostId),
     accessCode: normalizeId(accessCode),
     quality: qualitySelect?.value || 'balanced',
+    systemAudio: systemAudioInput?.checked !== false,
   }));
 }
 
@@ -366,6 +369,7 @@ async function populateSources() {
 async function startHosting() {
   const selectedSourceId = sourceSelect.value;
   const quality = getQualityProfile();
+  const shareSystemAudio = systemAudioInput?.checked !== false;
   if (!selectedSourceId) {
     updateStatus('Pick a screen or window source first.');
     return;
@@ -397,23 +401,32 @@ async function startHosting() {
   }
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        mandatory: {
-          chromeMediaSource: 'desktop',
-          chromeMediaSourceId: selectedSourceId,
-          minWidth: quality.width,
-          maxWidth: quality.width,
-          minHeight: quality.height,
-          maxHeight: quality.height,
-          // Capture enough frames for a viewer to choose the 60 FPS cap later.
-          // The encoder remains limited to the host's selected profile until a
-          // passcode-authorized viewer asks for a different profile.
-          maxFrameRate: 60,
-        },
+    const videoConstraints = {
+      mandatory: {
+        chromeMediaSource: 'desktop',
+        chromeMediaSourceId: selectedSourceId,
+        minWidth: quality.width,
+        maxWidth: quality.width,
+        minHeight: quality.height,
+        maxHeight: quality.height,
+        // Capture enough frames for a viewer to choose the 60 FPS cap later.
+        // The encoder remains limited to the host's selected profile until a
+        // passcode-authorized viewer asks for a different profile.
+        maxFrameRate: 60,
       },
-      audio: false,
-    });
+    };
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
+        audio: shareSystemAudio ? { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: selectedSourceId } } : false,
+      });
+    } catch (audioError) {
+      if (!shareSystemAudio) throw audioError;
+      console.warn('System audio capture was unavailable; continuing with video only.', audioError);
+      stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+      updateStatus('System audio was unavailable, so DeskLink started video-only.');
+    }
 
     localStream = stream;
     stream.getVideoTracks().forEach((track) => {
@@ -421,6 +434,7 @@ async function startHosting() {
       const sender = peerConnection.addTrack(track, stream);
       tuneVideoSender(sender, quality);
     });
+    stream.getAudioTracks().forEach((track) => peerConnection.addTrack(track, stream));
     previewVideo.srcObject = stream;
     previewVideo.play().catch(() => {});
     const accessCode = normalizeId(accessCodeInput.value) || generateAccessCode();
@@ -429,8 +443,9 @@ async function startHosting() {
     const registerExtras = { accessCode };
     registerHost(registerExtras);
     setStatus('Hosting', 'connecting');
-    updateStatus(`${quality.label} stream is live. New viewers need computer ID ${roomId} and its password.`);
-    if (streamDebug) streamDebug.textContent = `Stream: ${quality.label} · ${quality.width}×${quality.height} · host default ${quality.frameRate} FPS · source ${selectedSource?.name || selectedSourceId}`;
+    const audioStatus = stream.getAudioTracks().length ? 'system audio sharing on' : 'video only';
+    updateStatus(`${quality.label} stream is live with ${audioStatus}. New viewers need computer ID ${roomId} and its password.`);
+    if (streamDebug) streamDebug.textContent = `Stream: ${quality.label} · ${quality.width}×${quality.height} · host default ${quality.frameRate} FPS · ${audioStatus} · source ${selectedSource?.name || selectedSourceId}`;
     window.electronAPI.minimizeHost();
   } catch (error) {
     console.error(error);
