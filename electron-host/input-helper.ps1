@@ -54,6 +54,7 @@ public static class DeskLinkInterception {
   [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern void interception_destroy_context(IntPtr context);
   [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern int interception_is_keyboard(int device);
   [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern int interception_is_mouse(int device);
+  [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern int interception_get_hardware_id(IntPtr context, int device, IntPtr buffer, uint bufferSize);
   [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl)] public static extern int interception_send(IntPtr context, int device, ref KeyStroke stroke, uint count);
   [DllImport("interception.dll", CallingConvention=CallingConvention.Cdecl, EntryPoint="interception_send")] public static extern int interception_send_mouse(IntPtr context, int device, ref MouseStroke stroke, uint count);
 }
@@ -75,6 +76,7 @@ $useInterceptionMouse = $false
 $interceptionContext = [IntPtr]::Zero
 $interceptionUnavailable = $false
 $interceptionHeld = @{}
+$interceptionKeyboardDevice = 3
 $interceptionMouseContext = [IntPtr]::Zero
 $interceptionMouseUnavailable = $false
 $interceptionMouseHeld = @{}
@@ -135,12 +137,35 @@ function Stop-InterceptionKeyboard {
     foreach ($held in @($interceptionHeld.Values)) {
       $stroke = New-Object DeskLinkInterception+KeyStroke
       $stroke.code = [uint16]$held.code; $stroke.state = [uint16]($held.state -bor 0x01)
-      try { [DeskLinkInterception]::interception_send($interceptionContext, 3, [ref]$stroke, 1) | Out-Null } catch { }
+      try { [DeskLinkInterception]::interception_send($interceptionContext, $interceptionKeyboardDevice, [ref]$stroke, 1) | Out-Null } catch { }
     }
     try { [DeskLinkInterception]::interception_destroy_context($interceptionContext) } catch { }
   }
   $script:interceptionContext = [IntPtr]::Zero
   $script:interceptionHeld = @{}
+}
+
+function Find-InterceptionKeyboardDevice {
+  # Interception assigns keyboard slots separately on every Windows PC. The
+  # previous fixed slot (3) only worked by coincidence on the developer PC.
+  # Prefer a device's primary HID keyboard interface (MI_00), then fall back
+  # to the first available keyboard device.
+  $fallback = $null
+  for ($device = 1; $device -le 10; $device++) {
+    $buffer = [Runtime.InteropServices.Marshal]::AllocHGlobal(500)
+    try {
+      $length = [DeskLinkInterception]::interception_get_hardware_id($interceptionContext, $device, $buffer, 500)
+      if ($length -le 0) { continue }
+      $hardwareId = [Runtime.InteropServices.Marshal]::PtrToStringUni($buffer)
+      if ($null -eq $fallback) { $fallback = @{ device = $device; hardwareId = $hardwareId } }
+      if ($hardwareId -match '&MI_00(?:&|$)') { return @{ device = $device; hardwareId = $hardwareId } }
+    } catch {
+      continue
+    } finally {
+      [Runtime.InteropServices.Marshal]::FreeHGlobal($buffer)
+    }
+  }
+  return $fallback
 }
 
 function Start-InterceptionKeyboard {
@@ -152,8 +177,10 @@ function Start-InterceptionKeyboard {
   try {
     $script:interceptionContext = [DeskLinkInterception]::interception_create_context()
     if ($interceptionContext -eq [IntPtr]::Zero) { throw 'Could not create an Interception context.' }
-    if (-not [DeskLinkInterception]::interception_is_keyboard(3)) { throw 'Interception keyboard device 3 is no longer available. Use Parsec once, then restart DeskLink.' }
-    [Console]::Error.WriteLine('Interception game keyboard bridge connected to device 3.')
+    $keyboardDevice = Find-InterceptionKeyboardDevice
+    if ($null -eq $keyboardDevice) { throw 'No installed Interception keyboard device was found.' }
+    $script:interceptionKeyboardDevice = [int]$keyboardDevice.device
+    [Console]::Error.WriteLine("Interception game keyboard bridge connected to device $interceptionKeyboardDevice ($($keyboardDevice.hardwareId)).")
     return $true
   } catch { [Console]::Error.WriteLine("Interception keyboard bridge failed: $($_.Exception.Message)"); Stop-InterceptionKeyboard; $script:interceptionUnavailable = $true; return $false }
 }
@@ -166,7 +193,7 @@ function Send-InterceptionKey($payload, $isUp) {
   if ($isUp) { $state = $state -bor 0x01 }
   $stroke = New-Object DeskLinkInterception+KeyStroke
   $stroke.code = [uint16]$interceptionScanCodes[$codeName]; $stroke.state = [uint16]$state
-  $sent = [DeskLinkInterception]::interception_send($interceptionContext, 3, [ref]$stroke, 1)
+  $sent = [DeskLinkInterception]::interception_send($interceptionContext, $interceptionKeyboardDevice, [ref]$stroke, 1)
   if ($sent -ne 1) { [Console]::Error.WriteLine('Interception could not send the key.'); return $false }
   if ($isUp) { $script:interceptionHeld.Remove($codeName) } else { $script:interceptionHeld[$codeName] = @{ code = $stroke.code; state = ($state -band 0xFE) } }
   return $true
@@ -417,11 +444,9 @@ while (($line = [Console]::In.ReadLine()) -ne $null) {
       $vk = Get-VirtualKey $payload.key
       if ($null -ne $vk) { [DeskLinkInput]::keybd_event($vk, 0, 0x0002, [UIntPtr]::Zero) }
       continue
-    } elseif ($useInterceptionKeyboard -and $message.type -eq 'key-down') {
-      Send-InterceptionKey $payload $false | Out-Null
+    } elseif ($useInterceptionKeyboard -and $message.type -eq 'key-down' -and (Send-InterceptionKey $payload $false)) {
       continue
-    } elseif ($useInterceptionKeyboard -and $message.type -eq 'key-up') {
-      Send-InterceptionKey $payload $true | Out-Null
+    } elseif ($useInterceptionKeyboard -and $message.type -eq 'key-up' -and (Send-InterceptionKey $payload $true)) {
       continue
     } elseif ($message.type -eq 'text') {
       foreach ($character in [string]$payload.text) {
