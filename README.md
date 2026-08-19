@@ -22,16 +22,17 @@ DeskLink is a small remote-desktop project with a Windows host app and a browser
 - Persistent Computer ID and computer password on the host
 - Recent-computer list on each viewer browser (passwords are not saved)
 - Smooth, Balanced, and Crisp stream-quality modes
+- Optional host system-audio sharing to the browser peer
 - Background hosting through the Windows tray and launch-at-sign-in support
 - Optional virtual Xbox controller support through ViGEmBus
-- Optional game-keyboard path through Interception (installed separately)
+- Optional game-keyboard and game-mouse paths through Interception (installed separately)
 
 ## Credits and optional input projects
 
 DeskLink is an independent personal remote-desktop project. Its optional game-input features are possible because of these community projects:
 
 - [ViGEmBus by Nefarius](https://github.com/nefarius/ViGEmBus) provides the virtual Xbox controller used when a viewer sends controller input. ViGEmBus is retired/archived, but its production-signed installer remains the supported way to install that optional driver. ViGEmBus is licensed under BSD-3-Clause.
-- [Interception by Francisco Lopes (oblitum)](https://github.com/oblitum/Interception) provides the optional low-level keyboard bridge used by DeskLink's **Game keyboard driver** setting. The driver is installed separately by the computer owner. DeskLink includes only the official user-mode API library, under Interception's non-commercial LGPL-3.0 terms; see `electron-host/interception-bridge/` for its included license and notice.
+- [Interception by Francisco Lopes (oblitum)](https://github.com/oblitum/Interception) provides the optional low-level keyboard and mouse bridges used by DeskLink's game-driver settings. The driver is installed separately by the computer owner. DeskLink includes only the official user-mode API library, under Interception's non-commercial LGPL-3.0 terms; see `electron-host/interception-bridge/` for its included license and notice.
 
 DeskLink is not affiliated with, endorsed by, or supported by Nefarius, ViGEmBus, Francisco Lopes, or Interception. Please support the people and projects whose work made these optional features possible.
 
@@ -41,6 +42,11 @@ DeskLink is not affiliated with, endorsed by, or supported by Nefarius, ViGEmBus
 
 1. Download the release package and extract it.
 2. Open `DeskLink Host App.exe`.
+3. Leave **Share system audio** checked if you want the peer to hear the host's sound.
+
+### Optional game drivers (host only)
+
+See [GAME-DRIVERS.md](GAME-DRIVERS.md) for the official ViGEmBus and Interception download pages and their setup steps. The peer/browser device does not install either driver.
 3. Choose the display to share.
 4. Set a Computer ID and a strong Computer password. The app remembers both on that Windows account.
 5. Choose a stream mode, then select **Start hosting**.
@@ -102,7 +108,7 @@ The portable executable is created in `dist/`.
 The release package contains the Windows host app, `desklink-viewer.zip`, and this README:
 
 ```text
-releases/host/DeskLink-1.1.0.zip
+releases/host/DeskLink-1.1.1.zip
 releases/viewer/desklink-viewer.zip
 ```
 

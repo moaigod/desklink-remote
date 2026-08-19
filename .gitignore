@@ -4,6 +4,8 @@ dist/
 dist-developer/
 backups/
 releases/host/
+driver-installers/*.exe
+driver-installers/*.zip
 desklink-osk/src/**/bin/
 desklink-osk/src/**/obj/
 electron-host/vigem-bridge/bin/
